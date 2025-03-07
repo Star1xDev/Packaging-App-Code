@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packaging App</title>
+    <link rel="stylesheet" href="styles.css"> <!-- Include CSS -->
+</head>
+<body>
+    <h1>Packaging App</h1>
+
+    <!-- Button to Generate Packaging Data -->
+    <button id="generate-packaging">Generate Packaging Data</button>
+
+    <!-- Input for Barcode Scanning -->
+    <input type="text" id="barcode" placeholder="Scan Barcode">
+    <button id="scan-barcode">Scan</button>
+
+    <!-- Product Details Section -->
+    <div id="product-details" style="display: none;">
+        <h2>Product Details</h2>
+        <p id="product-name"></p>
+
+        <!-- Variant Selection -->
+        <div id="variant-options"></div>
+
+        <!-- Display Current Values -->
+        <p>Current Packaged Quantity: <span id="current-packaged"></span></p>
+        <p>Current Used Stock: <span id="current-used"></span></p>
+
+        <!-- Input Fields for New Values -->
+        <div>
+            <label for="packaged-quantity">Packaged Quantity:</label>
+            <input type="number" id="packaged-quantity" placeholder="Enter quantity" min="0">
+        </div>
+        <div>
+            <label for="used-stock">Used Stock:</label>
+            <input type="number" id="used-stock" placeholder="Enter used stock" min="0">
+        </div>
+
+        <!-- Toggle Button for Addition/Subtraction -->
+        <button id="toggle-operation">+ Add</button>
+        <br>
+
+        <!-- Save and Cancel Buttons -->
+        <button id="save-packaging">Save</button>
+        <button id="cancel-scan">Cancel</button>
+
+        <!-- New Spinner for Save Operation -->
+        <div class="loading-spinner" id="save-spinner">
+            <p>Saving...</p>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Reset Button for End of the Day -->
+    <button id="reset-packaging">Reset Packaging Data</button>
+
+    <!-- Show Packaging Table Button -->
+    <button id="toggle-packaging-table">Show Packaging Table</button>
+
+    <!-- Loading Indicator -->
+    <div class="loading-spinner" id="loading-spinner">
+        <p>Loading...</p>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Packaging Table Section -->
+    <div id="packaging-table-container" style="display: none;">
+        <h2>Packaging Data</h2>
+        <table id="packaging-table">
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Variant Name</th>
+                    <th>Packaged Quantity</th>
+                    <th>Used Stock</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); z-index: 1000;">
+        <p id="modal-message"></p>
+        <button id="confirm-action">Yes, Confirm</button>
+        <button id="cancel-action">Cancel</button>
+    </div>
+
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
