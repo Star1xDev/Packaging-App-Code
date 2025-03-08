@@ -3,8 +3,9 @@ body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
     color: #333;
+    text-align: center;
+    padding: 20px;
     margin: 0;
-    padding: 0;
 }
 
 /* Navigation Bar */
@@ -51,8 +52,13 @@ header h1 {
     font-size: 24px;
 }
 
+header p {
+    margin: 5px 0 0;
+    font-size: 18px;
+}
+
 /* Barcode Section */
-#barcode-section {
+.barcode-section {
     text-align: center;
     margin: 20px 0;
 }
@@ -117,12 +123,12 @@ input[type="radio"]:checked + label {
 }
 
 /* Admin Actions Section */
-#admin-actions {
+.admin-actions {
     text-align: center;
     margin: 20px 0;
 }
 
-#admin-actions button {
+.admin-actions button {
     margin: 0 10px;
     padding: 10px 20px;
     font-size: 16px;
@@ -134,7 +140,7 @@ input[type="radio"]:checked + label {
     transition: background 0.3s;
 }
 
-#admin-actions button:hover {
+.admin-actions button:hover {
     background-color: #2980b9;
 }
 
@@ -204,4 +210,51 @@ input[type="radio"]:checked + label {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Confirmation Modal */
+#confirmation-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    text-align: center;
+}
+
+#confirmation-modal p {
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+#confirmation-modal button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#confirm-action {
+    background-color: #3498db;
+    color: white;
+}
+
+#confirm-action:hover {
+    background-color: #2980b9;
+}
+
+#cancel-action {
+    background-color: #e74c3c;
+    color: white;
+}
+
+#cancel-action:hover {
+    background-color: #c0392b;
 }

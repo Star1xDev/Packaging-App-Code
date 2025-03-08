@@ -333,20 +333,56 @@ function resetProductDetailsUI() {
  */
 function setupPackagingTableListener() {
     const packagingTable = document.getElementById("packaging-table").getElementsByTagName("tbody")[0];
-    const totalPackagedElement = document.getElementById("total-packaged");
 
-    onSnapshot(collection(db, "packaging"), async (snapshot) => {
+    // Set up a real-time listener for the packaging collection
+    const packagingCollection = collection(db, "packaging");
+    onSnapshot(packagingCollection, async (snapshot) => {
+        // Show loading spinner
+        document.getElementById("loading-spinner").style.display = "block";
+
+        // Clear the table before populating it with new data
+        packagingTable.innerHTML = ""; // Clear existing rows
+
         let totalPackagedQuantity = 0;
+        let totalUsedStock = 0;
 
-        packagingTable.innerHTML = "";
-        snapshot.forEach((doc) => {
-            const packagingData = doc.data();
+        for (const packagingDoc of snapshot.docs) {
+            const packagingData = packagingDoc.data();
+            const product = await fetchProduct(packagingData.productId);
+
             packagingData.variants.forEach(variant => {
-                totalPackagedQuantity += variant.packagedQuantity;
-            });
-        });
+                const variantDetails = product.variants.find(v => v.variantId === variant.variantId);
+                const variantName = variantDetails ? variantDetails.name : "Unknown";
 
-        totalPackagedElement.textContent = totalPackagedQuantity.toLocaleString();
+                // Add to totals
+                totalPackagedQuantity += variant.packagedQuantity;
+                totalUsedStock += variant.usedStock;
+
+                // Insert a row for the variant
+                let row = packagingTable.insertRow();
+                row.innerHTML = `
+                    <td title="ID: ${packagingData.productId}">${product.name}</td>
+                    <td title="ID: ${variant.variantId}">${variantName}</td>
+                    <td>${variant.packagedQuantity.toLocaleString()}</td>
+                    <td>${variant.usedStock.toLocaleString()}</td>
+                `;
+            });
+        }
+
+        // Add a total row at the bottom of the table
+        let totalRow = packagingTable.insertRow();
+        totalRow.style.backgroundColor = "#007bff"; // Blue background
+        totalRow.style.color = "#fff"; // White text
+        totalRow.style.borderRadius = "8px"; // Rounded corners
+        totalRow.style.marginTop = "10px"; // Add some spacing
+        totalRow.innerHTML = `
+            <td colspan="2" style="text-align: center; font-weight: bold;">Total =</td>
+            <td style="font-weight: bold;">${totalPackagedQuantity.toLocaleString()}</td>
+            <td style="font-weight: bold;">${totalUsedStock.toLocaleString()}</td>
+        `;
+
+        // Hide loading spinner
+        document.getElementById("loading-spinner").style.display = "none";
     });
 }
 
