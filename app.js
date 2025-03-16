@@ -266,9 +266,7 @@ async function savePackagingData() {
  * Resets all packaging data to 0.
  */
 async function resetPackagingData() {
-    const isConfirmed = confirm("Are you sure you want to reset all packaging data? This action cannot be undone.");
-    if (!isConfirmed) return; // Exit if the user cancels
-
+    // Removed the confirm() call here
     console.log("Resetting packaging data...");
     const packagingSnapshot = await getDocs(collection(db, "packaging"));
 
@@ -331,8 +329,12 @@ function resetProductDetailsUI() {
 /**
  * Sets up the real-time listener for the packaging table.
  */
+/**
+ * Sets up the real-time listener for the packaging table.
+ */
 function setupPackagingTableListener() {
     const packagingTable = document.getElementById("packaging-table").getElementsByTagName("tbody")[0];
+    const totalPackagedElement = document.getElementById("total-packaged"); // Get the total packaged element
 
     // Set up a real-time listener for the packaging collection
     const packagingCollection = collection(db, "packaging");
@@ -368,6 +370,9 @@ function setupPackagingTableListener() {
                 `;
             });
         }
+
+        // Update the total packaged quantity in the header
+        totalPackagedElement.textContent = totalPackagedQuantity.toLocaleString();
 
         // Add a total row at the bottom of the table
         let totalRow = packagingTable.insertRow();
@@ -407,6 +412,7 @@ document.getElementById("reset-packaging").addEventListener("click", () => showC
 document.getElementById("cancel-scan").addEventListener("click", resetProductDetails);
 
 // Confirmation Modal Logic
+// Confirmation Modal Logic
 function showConfirmationModal(action) {
     const modal = document.getElementById("confirmation-modal");
     const modalMessage = document.getElementById("modal-message");
@@ -415,8 +421,8 @@ function showConfirmationModal(action) {
     if (action === "reset") {
         modalMessage.textContent = "Are you sure you want to reset all packaging data? This action cannot be undone.";
         confirmButton.onclick = async () => {
-            hideConfirmationModal();
-            await resetPackagingData();
+            hideConfirmationModal(); // Hide the modal first
+            await resetPackagingData(); // Then reset the data
         };
     }
 

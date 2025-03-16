@@ -4,7 +4,6 @@ body {
     background-color: #f4f4f4;
     color: #333;
     text-align: center;
-    padding: 20px;
     margin: 0;
 }
 
@@ -20,17 +19,18 @@ nav ul {
     padding: 0;
     display: flex;
     justify-content: center;
+    flex-wrap: wrap; /* Allow items to wrap on smaller screens */
 }
 
 nav ul li {
-    margin: 0 15px;
+    margin: 5px 10px; /* Reduce margin for smaller screens */
 }
 
 nav ul li a {
     color: white;
     text-decoration: none;
-    font-size: 18px;
-    padding: 10px 15px;
+    font-size: 16px; /* Smaller font size for mobile */
+    padding: 8px 12px; /* Smaller padding for mobile */
     border-radius: 5px;
     transition: background 0.3s;
 }
@@ -57,33 +57,68 @@ header p {
     font-size: 18px;
 }
 
-/* Barcode Section */
-.barcode-section {
-    text-align: center;
-    margin: 20px 0;
-}
-
-#barcode {
-    width: 200px;
-    padding: 10px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-}
-
-#scan-barcode {
-    padding: 10px 20px;
-    font-size: 16px;
+/* Buttons */
+button {
     background-color: #3498db;
     color: white;
     border: none;
-    border-radius: 5px;
+    padding: 10px 15px;
+    margin: 10px;
     cursor: pointer;
+    border-radius: 5px;
+    font-size: 16px;
     transition: background 0.3s;
 }
 
-#scan-barcode:hover {
+button:hover {
     background-color: #2980b9;
+}
+
+/* Save Button */
+#save-packaging {
+    background-color: #3498db;
+}
+
+#save-packaging:hover {
+    background-color: #2980b9;
+}
+
+/* Generate Button */
+#generate-packaging {
+    background-color: #3498db;
+}
+
+#generate-packaging:hover {
+    background-color: #2980b9;
+}
+
+/* Reset Button */
+#reset-packaging {
+    background-color: #e74c3c;
+}
+
+#reset-packaging:hover {
+    background-color: #c0392b;
+}
+
+/* Show Packaging Table Button */
+#toggle-packaging-table {
+    background-color: #3498db;
+}
+
+#toggle-packaging-table:hover {
+    background-color: #2980b9;
+}
+
+/* Inputs */
+input, select {
+    width: 90%;
+    max-width: 300px;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
 }
 
 /* Product Details Section */
@@ -99,6 +134,7 @@ header p {
     box-sizing: border-box;
 }
 
+/* Variant Selection */
 #variant-options {
     display: flex;
     justify-content: center;
@@ -119,6 +155,7 @@ header p {
     background: #d0d3d4;
 }
 
+/* Selected Variant */
 input[type="radio"]:checked + label {
     background: #3498db;
     color: white;
@@ -132,44 +169,19 @@ p {
 
 /* Toggle Addition or Subtraction */
 #toggle-operation {
-    background-color: #3498db; /* Blue color */
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    margin: 10px;
-    cursor: pointer;
-    border-radius: 5px;
-    font-size: 16px;
-    transition: background 0.3s;
+    background-color: #3498db;
 }
 
 #toggle-operation.subtract {
-    background-color: #e74c3c; /* Red color for subtraction */
+    background-color: #e74c3c;
 }
 
 /* Cancel Button */
 #cancel-scan {
-    background-color: #e74c3c; /* Red color */
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    margin: 10px;
-    cursor: pointer;
-    border-radius: 5px;
-    font-size: 16px;
-    transition: background 0.3s;
-}
-
-#cancel-scan:hover {
-    background-color: #c0392b; /* Darker red on hover */
-}
-
-/* Reset Button */
-#reset-packaging {
     background-color: #e74c3c;
 }
 
-#reset-packaging:hover {
+#cancel-scan:hover {
     background-color: #c0392b;
 }
 
@@ -241,19 +253,36 @@ td[title]:hover::after {
 
 /* Responsive Styles */
 @media screen and (max-width: 768px) {
-    body {
-        padding: 10px;
+    /* Navigation Bar */
+    nav ul li a {
+        font-size: 14px; /* Smaller font size for tablets */
+        padding: 6px 10px; /* Smaller padding for tablets */
     }
 
+    /* Header */
+    header h1 {
+        font-size: 22px;
+    }
+
+    header p {
+        font-size: 16px;
+    }
+
+    /* Buttons */
     button {
         width: 90%;
         max-width: 300px;
+        font-size: 14px;
+        padding: 8px 12px;
     }
 
+    /* Inputs */
     input, select {
         width: 95%;
+        font-size: 14px;
     }
 
+    /* Product Details Section */
     #product-details,
     #packaging-table-container {
         width: 95%;
@@ -261,6 +290,7 @@ td[title]:hover::after {
         padding: 15px;
     }
 
+    /* Table Styling */
     table {
         font-size: 14px;
     }
@@ -271,18 +301,42 @@ td[title]:hover::after {
 }
 
 @media screen and (max-width: 480px) {
-    h1 {
-        font-size: 22px;
+    /* Navigation Bar */
+    nav ul {
+        flex-direction: column; /* Stack items vertically on mobile */
+        align-items: center;
     }
 
+    nav ul li {
+        margin: 5px 0; /* Reduce margin for mobile */
+    }
+
+    nav ul li a {
+        font-size: 14px; /* Smaller font size for mobile */
+        padding: 6px 10px; /* Smaller padding for mobile */
+    }
+
+    /* Header */
+    header h1 {
+        font-size: 20px;
+    }
+
+    header p {
+        font-size: 14px;
+    }
+
+    /* Buttons */
     button {
-        font-size: 14px;
+        font-size: 12px;
+        padding: 6px 10px;
     }
 
+    /* Inputs */
     input, select {
-        font-size: 14px;
+        font-size: 12px;
     }
 
+    /* Table Styling */
     table {
         font-size: 12px;
     }
@@ -294,7 +348,7 @@ td[title]:hover::after {
 
 /* Loading Spinner Styles */
 .loading-spinner {
-    display: none; /* Hidden by default */
+    display: none;
     text-align: center;
     margin: 20px;
 }
@@ -307,8 +361,8 @@ td[title]:hover::after {
 
 /* Spinner Animation */
 .spinner {
-    border: 4px solid #f3f3f3; /* Light gray */
-    border-top: 4px solid #3498db; /* Blue */
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -323,7 +377,7 @@ td[title]:hover::after {
 
 /* Confirmation Modal Styles */
 #confirmation-modal {
-    display: none; /* Hidden by default */
+    display: none;
     position: fixed;
     top: 50%;
     left: 50%;
