@@ -14,9 +14,10 @@ import {
 // Global State Management
 // ==================================================
 const state = {
-    currentProduct: null, // Stores the currently selected product
-    selectedVariantIndex: null, // Stores the index of the selected variant
-    isAdding: true, // Tracks whether the user is adding or subtracting
+    currentProduct: null,
+    selectedVariantIndex: null,
+    isAdding: true,
+    allProducts: [] // Store all products for autocomplete
 };
 
 // ==================================================
@@ -51,6 +52,11 @@ function resetProductDetailsUI() {
 // ==================================================
 // Firestore Operations
 // ==================================================
+
+async function fetchAllProducts() {
+    const productsSnapshot = await getDocs(collection(db, "products"));
+    state.allProducts = productsSnapshot.docs.map(doc => doc.data());
+}
 
 /**
  * Fetches a product from Firestore and adds a default variant if none exist.
@@ -132,11 +138,12 @@ async function generatePackagingCollection() {
 /**
  * Handles barcode scanning and displays product details.
  */
-async function scanBarcode() {
-    const barcode = document.getElementById("barcode").value;
-    const product = await fetchProduct(barcode);
+async function scanBarcode(productId) {
+    const product = await fetchProduct(productId);
+    const input = document.getElementById("product-name-input");
 
     if (product) {
+        input.value = ""; // Clear input field
         resetProductDetailsUI();
         state.currentProduct = product;
         document.getElementById("product-name").textContent = product.name;
@@ -175,6 +182,43 @@ async function scanBarcode() {
         document.getElementById("product-details").style.display = "block";
     }
 }
+
+// ==================================================
+// Autocomplete Functionality
+// ==================================================
+document.getElementById("product-name-input").addEventListener("input", function(e) {
+    const input = e.target.value.toLowerCase();
+    const suggestions = document.getElementById("autocomplete-suggestions");
+    
+    suggestions.innerHTML = "";
+    if (!input) {
+        suggestions.style.display = "none";
+        return;
+    }
+
+    const filteredProducts = state.allProducts.filter(product => 
+        product.name.toLowerCase().includes(input)
+    );
+
+    if (filteredProducts.length > 0) {
+        suggestions.style.display = "block";
+        filteredProducts.forEach(product => {
+            const div = document.createElement("div");
+            div.textContent = product.name;
+            div.dataset.productId = product.productId;
+            suggestions.appendChild(div);
+        });
+    }
+});
+
+document.getElementById("autocomplete-suggestions").addEventListener("click", function(e) {
+    if (e.target.tagName === "DIV") {
+        const productId = e.target.dataset.productId;
+        document.getElementById("product-name-input").value = e.target.textContent;
+        this.style.display = "none";
+        scanBarcode(productId);
+    }
+});
 
 /**
  * Loads the packaging data for the selected variant.
@@ -284,16 +328,19 @@ async function resetPackagingData() {
 
         await updateDoc(packagingRef, { variants: packagingData.variants });
     }
+    
     alert("All packaging data has been reset!");
-
-    // Reset the UI
-    resetProductDetails();
+    resetProductDetails();  // Let the real-time listener update the table
 }
 
 /**
  * Resets the product details view.
  */
 function resetProductDetails() {
+    // Clear additional elements
+    document.getElementById("product-name-input").value = "";
+    document.getElementById("autocomplete-suggestions").style.display = "none";
+
     // Hide the product details section
     document.getElementById("product-details").style.display = "none";
 
@@ -395,11 +442,31 @@ function togglePackagingTable() {
 // ==================================================
 
 document.getElementById("generate-packaging").addEventListener("click", generatePackagingCollection);
-document.getElementById("scan-barcode").addEventListener("click", scanBarcode);
 document.getElementById("toggle-packaging-table").addEventListener("click", togglePackagingTable);
 document.getElementById("save-packaging").addEventListener("click", savePackagingData);
 document.getElementById("reset-packaging").addEventListener("click", () => showConfirmationModal("reset"));
 document.getElementById("cancel-scan").addEventListener("click", resetProductDetails);
+// Add this instead (optional scan button):
+document.getElementById("scan-barcode").addEventListener("click", () => {
+    const input = document.getElementById("product-name-input");
+    const suggestions = document.getElementById("autocomplete-suggestions");
+    const product = state.allProducts.find(p => p.name === input.value);
+    
+    suggestions.style.display = "none"; // Hide dropdown
+    
+    if (product) {
+        scanBarcode(product.productId);
+        input.value = ""; // Clear input after successful scan
+    } else {
+        alert("Product not found!");
+    }
+});
+
+document.getElementById("toggle-operation").addEventListener("click", function() {
+    state.isAdding = !state.isAdding;
+    this.textContent = state.isAdding ? "+ Add" : "- Subtract";
+    this.classList.toggle("subtract", !state.isAdding);
+});
 
 // Confirmation Modal Logic
 function showConfirmationModal(action) {
@@ -426,5 +493,6 @@ document.getElementById("cancel-action").addEventListener("click", hideConfirmat
 
 // Initialize the real-time listener when the page loads
 window.addEventListener("load", () => {
+    fetchAllProducts(); // Add this line
     setupPackagingTableListener();
 });

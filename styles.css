@@ -251,6 +251,27 @@ td[title]:hover::after {
     z-index: 10;
 }
 
+/* Autocomplete Dropdown */
+.autocomplete-dropdown {
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    max-height: 150px;
+    overflow-y: auto;
+    width: 100%;
+    z-index: 1000;
+    display: none;
+}
+
+.autocomplete-dropdown div {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.autocomplete-dropdown div:hover {
+    background: #f0f0f0;
+}
+
 /* Responsive Styles */
 @media screen and (max-width: 768px) {
     /* Navigation Bar */
