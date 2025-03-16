@@ -10,10 +10,18 @@ import {
     runTransaction,
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 
-// Global variables
-let currentProduct = null; // Stores the currently selected product
-let selectedVariantIndex = null; // Stores the index of the selected variant
-let isAdding = true; // Track whether the user is adding or subtracting
+// ==================================================
+// Global State Management
+// ==================================================
+const state = {
+    currentProduct: null, // Stores the currently selected product
+    selectedVariantIndex: null, // Stores the index of the selected variant
+    isAdding: true, // Tracks whether the user is adding or subtracting
+};
+
+// ==================================================
+// Helper Functions
+// ==================================================
 
 /**
  * Validates the input value to ensure it's a non-negative number.
@@ -30,11 +38,26 @@ function validateInput(value, fieldName) {
 }
 
 /**
+ * Resets the product details UI to its default state.
+ */
+function resetProductDetailsUI() {
+    document.getElementById("current-packaged").textContent = "";
+    document.getElementById("current-used").textContent = "";
+    document.getElementById("packaged-quantity").value = "";
+    document.getElementById("used-stock").value = "";
+    document.getElementById("variant-options").innerHTML = "";
+}
+
+// ==================================================
+// Firestore Operations
+// ==================================================
+
+/**
  * Fetches a product from Firestore and adds a default variant if none exist.
  * @param {string} productId - The ID of the product to fetch.
  * @returns {Promise<Object|null>} - Returns the product data if found, otherwise null.
  */
-export async function fetchProduct(productId) {
+async function fetchProduct(productId) {
     const productRef = doc(db, "products", productId);
     const productSnap = await getDoc(productRef);
 
@@ -47,8 +70,8 @@ export async function fetchProduct(productId) {
         productData.variants = [
             {
                 variantId: "default",
-                name: "Default"
-            }
+                name: "Default",
+            },
         ];
     }
 
@@ -73,7 +96,7 @@ async function generatePackagingCollection() {
         if (!packagingSnap.exists()) {
             let packagingData = {
                 productId: productData.productId,
-                variants: []
+                variants: [],
             };
 
             // If the product has no variants, add a default variant
@@ -82,16 +105,16 @@ async function generatePackagingCollection() {
                     variantId: "default",
                     name: "Default",
                     packagedQuantity: 0,
-                    usedStock: 0
+                    usedStock: 0,
                 });
             } else {
                 // Add all variants from the product
-                productData.variants.forEach(variant => {
+                productData.variants.forEach((variant) => {
                     packagingData.variants.push({
                         variantId: variant.variantId,
                         name: variant.name,
                         packagedQuantity: 0,
-                        usedStock: 0
+                        usedStock: 0,
                     });
                 });
             }
@@ -110,13 +133,12 @@ async function generatePackagingCollection() {
  * Handles barcode scanning and displays product details.
  */
 async function scanBarcode() {
-    
     const barcode = document.getElementById("barcode").value;
     const product = await fetchProduct(barcode);
 
     if (product) {
         resetProductDetailsUI();
-        currentProduct = product;
+        state.currentProduct = product;
         document.getElementById("product-name").textContent = product.name;
 
         const variantOptions = document.getElementById("variant-options");
@@ -124,10 +146,10 @@ async function scanBarcode() {
         if (product.variants.length === 1 && product.variants[0].variantId === "default") {
             // Hide variant selection for products with only a default variant
             variantOptions.style.display = "none";
-            selectedVariantIndex = 0; // Automatically select the default variant
+            state.selectedVariantIndex = 0; // Automatically select the default variant
 
             // Load packaging data for the default variant
-            await loadPackagingData(selectedVariantIndex);
+            await loadPackagingData(state.selectedVariantIndex);
         } else {
             // Show variant selection for products with multiple variants
             variantOptions.style.display = "block";
@@ -142,10 +164,10 @@ async function scanBarcode() {
                 )
                 .join("");
 
-            document.querySelectorAll("input[name='variant']").forEach(input => {
+            document.querySelectorAll("input[name='variant']").forEach((input) => {
                 input.addEventListener("click", function () {
-                    selectedVariantIndex = this.dataset.index;
-                    loadPackagingData(selectedVariantIndex);
+                    state.selectedVariantIndex = this.dataset.index;
+                    loadPackagingData(state.selectedVariantIndex);
                 });
             });
         }
@@ -156,13 +178,12 @@ async function scanBarcode() {
 
 /**
  * Loads the packaging data for the selected variant.
- * @param {Object} product - The product data.
  * @param {number} variantIndex - The index of the selected variant.
  */
 async function loadPackagingData(variantIndex) {
-    if (!currentProduct) return; // Ensure a product is selected
+    if (!state.currentProduct) return; // Ensure a product is selected
 
-    const packagingRef = doc(db, "packaging", currentProduct.productId);
+    const packagingRef = doc(db, "packaging", state.currentProduct.productId);
     const packagingSnap = await getDoc(packagingRef);
 
     if (packagingSnap.exists()) {
@@ -175,7 +196,7 @@ async function loadPackagingData(variantIndex) {
             // Display current values
             document.getElementById("current-packaged").textContent = selectedVariant.packagedQuantity;
             document.getElementById("current-used").textContent = selectedVariant.usedStock;
-            selectedVariantIndex = variantIndex;
+            state.selectedVariantIndex = variantIndex;
 
             // Autofocus on the packagedQuantity input field
             document.getElementById("packaged-quantity").focus();
@@ -183,25 +204,15 @@ async function loadPackagingData(variantIndex) {
             alert("Selected variant does not exist in packaging data.");
         }
     } else {
-        // If the packaging document doesn't exist, show an error
         alert("Packaging data not found for this product. Please generate the packaging collection first.");
     }
 }
 
 /**
- * Toggles between addition and subtraction modes.
- */
-document.getElementById("toggle-operation").addEventListener("click", function () {
-    isAdding = !isAdding; // Toggle the state
-    this.textContent = isAdding ? "+ Add" : "- Subtract"; // Update button text
-    this.classList.toggle("subtract", !isAdding); // Toggle CSS class
-});
-
-/**
  * Saves packaging data with addition/subtraction logic.
  */
 async function savePackagingData() {
-    if (currentProduct && selectedVariantIndex !== null) {
+    if (state.currentProduct && state.selectedVariantIndex !== null) {
         const packagedQuantity = parseInt(document.getElementById("packaged-quantity").value) || 0;
         const usedStock = parseInt(document.getElementById("used-stock").value) || 0;
 
@@ -212,22 +223,20 @@ async function savePackagingData() {
         // Show the save spinner
         document.getElementById("save-spinner").style.display = "block";
 
-        const packagingRef = doc(db, "packaging", currentProduct.productId);
+        const packagingRef = doc(db, "packaging", state.currentProduct.productId);
 
         try {
-            // Use a Firestore transaction
             await runTransaction(db, async (transaction) => {
-                // Read the document
                 const packagingSnap = await transaction.get(packagingRef);
                 if (!packagingSnap.exists()) {
                     throw new Error("Document does not exist!");
                 }
 
                 let packagingData = packagingSnap.data();
-                const selectedVariant = packagingData.variants[selectedVariantIndex];
+                const selectedVariant = packagingData.variants[state.selectedVariantIndex];
 
                 // Apply addition or subtraction
-                if (isAdding) {
+                if (state.isAdding) {
                     selectedVariant.packagedQuantity += packagedQuantity;
                     selectedVariant.usedStock += usedStock;
                 } else {
@@ -239,24 +248,19 @@ async function savePackagingData() {
                     selectedVariant.usedStock -= usedStock;
                 }
 
-                // Update the document within the transaction
                 transaction.update(packagingRef, { variants: packagingData.variants });
             });
 
             alert("Packaging data updated successfully!");
         } catch (error) {
-            alert(error.message); // Show error message to the user
+            alert(error.message);
         } finally {
             // Hide the save spinner
             document.getElementById("save-spinner").style.display = "none";
+            await loadPackagingData(state.selectedVariantIndex); // Refresh the UI
+            document.getElementById("packaged-quantity").value = "";
+            document.getElementById("used-stock").value = "";
         }
-
-        // Refresh the UI with the updated values
-        await loadPackagingData(selectedVariantIndex);
-
-        // Reset the input fields
-        document.getElementById("packaged-quantity").value = "";
-        document.getElementById("used-stock").value = "";
     } else {
         alert("Please select a product and variant first.");
     }
@@ -266,7 +270,6 @@ async function savePackagingData() {
  * Resets all packaging data to 0.
  */
 async function resetPackagingData() {
-    // Removed the confirm() call here
     console.log("Resetting packaging data...");
     const packagingSnapshot = await getDocs(collection(db, "packaging"));
 
@@ -274,7 +277,7 @@ async function resetPackagingData() {
         const packagingRef = doc(db, "packaging", packagingDoc.id);
         const packagingData = packagingDoc.data();
 
-        packagingData.variants.forEach(variant => {
+        packagingData.variants.forEach((variant) => {
             variant.packagedQuantity = 0;
             variant.usedStock = 0;
         });
@@ -309,32 +312,16 @@ function resetProductDetails() {
     document.getElementById("current-used").textContent = "";
 
     // Reset global variables
-    currentProduct = null;
-    selectedVariantIndex = null;
+    state.currentProduct = null;
+    state.selectedVariantIndex = null;
 }
 
-function resetProductDetailsUI() {
-    // Clear the current values
-    document.getElementById("current-packaged").textContent = "";
-    document.getElementById("current-used").textContent = "";
-
-    // Clear the input fields
-    document.getElementById("packaged-quantity").value = "";
-    document.getElementById("used-stock").value = "";
-
-    // Clear the variant options
-    document.getElementById("variant-options").innerHTML = "";
-}
-
-/**
- * Sets up the real-time listener for the packaging table.
- */
 /**
  * Sets up the real-time listener for the packaging table.
  */
 function setupPackagingTableListener() {
     const packagingTable = document.getElementById("packaging-table").getElementsByTagName("tbody")[0];
-    const totalPackagedElement = document.getElementById("total-packaged"); // Get the total packaged element
+    const totalPackagedElement = document.getElementById("total-packaged");
 
     // Set up a real-time listener for the packaging collection
     const packagingCollection = collection(db, "packaging");
@@ -343,7 +330,7 @@ function setupPackagingTableListener() {
         document.getElementById("loading-spinner").style.display = "block";
 
         // Clear the table before populating it with new data
-        packagingTable.innerHTML = ""; // Clear existing rows
+        packagingTable.innerHTML = "";
 
         let totalPackagedQuantity = 0;
         let totalUsedStock = 0;
@@ -352,8 +339,8 @@ function setupPackagingTableListener() {
             const packagingData = packagingDoc.data();
             const product = await fetchProduct(packagingData.productId);
 
-            packagingData.variants.forEach(variant => {
-                const variantDetails = product.variants.find(v => v.variantId === variant.variantId);
+            packagingData.variants.forEach((variant) => {
+                const variantDetails = product.variants.find((v) => v.variantId === variant.variantId);
                 const variantName = variantDetails ? variantDetails.name : "Unknown";
 
                 // Add to totals
@@ -376,10 +363,10 @@ function setupPackagingTableListener() {
 
         // Add a total row at the bottom of the table
         let totalRow = packagingTable.insertRow();
-        totalRow.style.backgroundColor = "#007bff"; // Blue background
-        totalRow.style.color = "#fff"; // White text
-        totalRow.style.borderRadius = "8px"; // Rounded corners
-        totalRow.style.marginTop = "10px"; // Add some spacing
+        totalRow.style.backgroundColor = "#007bff";
+        totalRow.style.color = "#fff";
+        totalRow.style.borderRadius = "8px";
+        totalRow.style.marginTop = "10px";
         totalRow.innerHTML = `
             <td colspan="2" style="text-align: center; font-weight: bold;">Total =</td>
             <td style="font-weight: bold;">${totalPackagedQuantity.toLocaleString()}</td>
@@ -403,7 +390,10 @@ function togglePackagingTable() {
     }
 }
 
+// ==================================================
 // Event Listeners
+// ==================================================
+
 document.getElementById("generate-packaging").addEventListener("click", generatePackagingCollection);
 document.getElementById("scan-barcode").addEventListener("click", scanBarcode);
 document.getElementById("toggle-packaging-table").addEventListener("click", togglePackagingTable);
@@ -411,7 +401,6 @@ document.getElementById("save-packaging").addEventListener("click", savePackagin
 document.getElementById("reset-packaging").addEventListener("click", () => showConfirmationModal("reset"));
 document.getElementById("cancel-scan").addEventListener("click", resetProductDetails);
 
-// Confirmation Modal Logic
 // Confirmation Modal Logic
 function showConfirmationModal(action) {
     const modal = document.getElementById("confirmation-modal");
@@ -421,8 +410,8 @@ function showConfirmationModal(action) {
     if (action === "reset") {
         modalMessage.textContent = "Are you sure you want to reset all packaging data? This action cannot be undone.";
         confirmButton.onclick = async () => {
-            hideConfirmationModal(); // Hide the modal first
-            await resetPackagingData(); // Then reset the data
+            hideConfirmationModal();
+            await resetPackagingData();
         };
     }
 
