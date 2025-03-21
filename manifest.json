@@ -1,21 +1,20 @@
 {
-  "short_name": "PackagingApp",
-  "name": "Packaging Management App",
+  "short_name": "PackApp",
+  "name": "Packaging Management",
   "icons": [
     {
       "src": "icons/web-app-manifest-192x192.png",
-      "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
       "src": "icons/web-app-manifest-512x512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ],
-  "start_url": "/index.html",
-  "background_color": "#3498db",
+  "start_url": "./index.html",
   "display": "standalone",
-  "scope": "/",
-  "theme_color": "#3498db"
+  "theme_color": "#3498db",
+  "background_color": "#ffffff"
 }

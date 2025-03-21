@@ -509,3 +509,31 @@ if ('serviceWorker' in navigator) {
         });
     });
   }
+
+  let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  
+  // Create install button
+  const installBtn = document.createElement('button');
+  installBtn.id = 'installBtn';
+  installBtn.textContent = 'Install App';
+  installBtn.style.position = 'fixed';
+  installBtn.style.bottom = '20px';
+  installBtn.style.right = '20px';
+  installBtn.style.zIndex = '1000';
+  document.body.appendChild(installBtn);
+
+  installBtn.addEventListener('click', () => {
+    installBtn.style.display = 'none';
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User accepted install');
+      }
+      deferredPrompt = null;
+    });
+  });
+});
