@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Manifest -->
+    <!-- PWA Configuration -->
     <link rel="manifest" href="/Packaging-App-Code/Manifest.json" crossorigin="use-credentials">
-    <!-- iOS Safari PWA -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <!-- Theme Color -->
     <meta name="theme-color" content="#3498db">
-    <title>Packaging App</title>
-    <link rel="stylesheet" href="styles.css"> <!-- Include CSS -->
-    <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+    
+    <!-- iOS PWA Settings -->
+    <meta name="mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    
+    <!-- Styles & Favicons -->
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+    
+    <title>Packaging App</title>
 </head>
 <body>
-    <!-- Navigation Bar -->
+    <!-- Navigation -->
     <nav>
         <ul>
             <li><a href="#packager" class="active">🏠 Packager</a></li>
@@ -49,7 +52,7 @@
         <p>Current Packaged Quantity: <span id="current-packaged"></span></p>
         <p>Current Used Stock: <span id="current-used"></span></p>
 
-        <!-- Input Fields for New Values -->
+        <!-- Input Fields -->
         <div>
             <label for="packaged-quantity">Packaged Quantity:</label>
             <input type="number" id="packaged-quantity" placeholder="Enter quantity" min="0">
@@ -59,7 +62,7 @@
             <input type="number" id="used-stock" placeholder="Enter used stock" min="0">
         </div>
 
-        <!-- Toggle Button for Addition/Subtraction -->
+        <!-- Toggle Button -->
         <button id="toggle-operation">+ Add</button>
         <br>
 
@@ -74,14 +77,14 @@
         </div>
     </div>
 
-    <!-- Admin Actions Section -->
+    <!-- Admin Actions -->
     <div class="admin-actions">
         <button id="generate-packaging">Generate Packaging Collection</button>
         <button id="reset-packaging">Reset Packaging Data</button>
         <button id="toggle-packaging-table">Show Packaging Table</button>
     </div>
 
-    <!-- Packaging Table Section -->
+    <!-- Packaging Table -->
     <div id="packaging-table-container" style="display: none;">
         <h2>Packaging Data</h2>
         <table id="packaging-table">
@@ -110,16 +113,17 @@
         <button id="cancel-action">Cancel</button>
     </div>
 
+    <!-- Scripts -->
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-          window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/Packaging-App-Code/sw.js', { scope: '/Packaging-App-Code/' })
-              .then(reg => console.log('SW registered:', reg))
-              .catch(err => console.log('SW failed:', err));
-          });
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/Packaging-App-Code/sw.js', { scope: '/Packaging-App-Code/' })
+                    .then(reg => console.log('Service Worker registered:', reg))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
         }
-      </script>
+    </script>
 </body>
 </html>
