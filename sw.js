@@ -1,12 +1,12 @@
 const CACHE_NAME = 'packaging-app-v1';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './firebase-config.js',
-  './icons/web-app-manifest-192x192.png',
-  './icons/web-app-manifest-512x512.png'
+  '/Packaging-App-Code/',
+  '/Packaging-App-Code/index.html',
+  '/Packaging-App-Code/styles.css',
+  '/Packaging-App-Code/app.js',
+  '/Packaging-App-Code/firebase-config.js',
+  '/Packaging-App-Code/icons/web-app-manifest-192x192.png',
+  '/Packaging-App-Code/icons/web-app-manifest-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {
