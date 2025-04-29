@@ -12,7 +12,9 @@ const state = {
     currentProduct: null,       // Currently selected product object
     selectedVariantIndex: null, // Index of selected product variant
     isAdding: true,             // Operation mode (add/subtract)
-    allProducts: []             // Cache of all products for search
+    allProducts: [],             // Cache of all products for search
+    undoStack: [],  // Stores actions for undo
+    redoStack: []   // Stores actions for redo
 };
 
 // ==================================================
@@ -248,6 +250,12 @@ async function savePackagingData() {
             const packagingData = packagingSnap.data();
             const variant = packagingData.variants[state.selectedVariantIndex];
 
+            // Store OLD values before making changes
+            const oldValues = {
+                packaged: variant.packagedQuantity,
+                used: variant.usedStock
+            };
+
             // Update values based on operation mode
             if (state.isAdding) {
                 variant.packagedQuantity += packagedQuantity;
@@ -264,8 +272,24 @@ async function savePackagingData() {
 
             // Commit transaction
             transaction.update(packagingRef, { variants: packagingData.variants });
+
+            // Record action for undo AFTER successful save
+            state.undoStack.push({
+                productId: state.currentProduct.productId,
+                variantIndex: state.selectedVariantIndex,
+                oldValues: oldValues,
+                newValues: {
+                    packaged: variant.packagedQuantity,
+                    used: variant.usedStock
+                }
+            });
+
+            // Clear redo stack
+            state.redoStack = [];
         });
+
         alert("Data updated successfully!");
+        updateUndoRedoButtons(); // Update button states
     } catch (error) {
         alert(error.message);
     } finally {
@@ -276,6 +300,60 @@ async function savePackagingData() {
         dom.usedStock.value = "";
     }
 }
+
+// Update button states
+function updateUndoRedoButtons() {
+    document.getElementById('undo-button').disabled = state.undoStack.length === 0;
+    document.getElementById('redo-button').disabled = state.redoStack.length === 0;
+  }
+  
+  // Undo function
+  async function undoLastAction() {
+    if (state.undoStack.length === 0) return;
+  
+    const action = state.undoStack.pop();
+    const packagingRef = doc(db, "packaging", action.productId);
+  
+    // Revert to old values
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(packagingRef);
+      const variants = [...docSnap.data().variants];
+      variants[action.variantIndex] = {
+        ...variants[action.variantIndex],
+        packagedQuantity: action.oldValues.packaged,
+        usedStock: action.oldValues.used
+      };
+      transaction.update(packagingRef, { variants });
+    });
+  
+    // Push to redo stack
+    state.redoStack.push(action);
+    updateUndoRedoButtons();
+  }
+  
+  // Redo function
+  async function redoLastAction() {
+    if (state.redoStack.length === 0) return;
+  
+    const action = state.redoStack.pop();
+    const packagingRef = doc(db, "packaging", action.productId);
+  
+    // Re-apply new values
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(packagingRef);
+      const variants = [...docSnap.data().variants];
+      variants[action.variantIndex] = {
+        ...variants[action.variantIndex],
+        packagedQuantity: action.newValues.packaged,
+        usedStock: action.newValues.used
+      };
+      transaction.update(packagingRef, { variants });
+    });
+  
+    // Push back to undo stack
+    state.undoStack.push(action);
+    updateUndoRedoButtons();
+  }
 
 // ==================================================
 // AUTOCOMPLETE HANDLERS
@@ -401,6 +479,9 @@ function setupEventListeners() {
     document.getElementById("cancel-action").addEventListener("click", () => {
         dom.confirmationModal.style.display = "none";
     });
+
+    document.getElementById('undo-button').addEventListener('click', undoLastAction);
+    document.getElementById('redo-button').addEventListener('click', redoLastAction);
 }
 
 // Show confirmation dialog for destructive actions
@@ -415,23 +496,23 @@ function showConfirmationModal(action) {
     dom.confirmationModal.style.display = "block";
 }
 
-// PWA Installation Handler
-window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    // Create install button
-    const installBtn = document.createElement('button');
-    installBtn.id = 'installBtn';
-    installBtn.textContent = 'Install App';
-    installBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;';
+// // PWA Installation Handler
+// window.addEventListener('beforeinstallprompt', e => {
+//     e.preventDefault();
+//     // Create install button
+//     const installBtn = document.createElement('button');
+//     installBtn.id = 'installBtn';
+//     installBtn.textContent = 'Install App';
+//     installBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;';
     
-    // Handle install button click
-    installBtn.addEventListener('click', () => {
-        installBtn.style.display = 'none';
-        e.prompt().then(() => e = null);
-    });
+//     // Handle install button click
+//     installBtn.addEventListener('click', () => {
+//         installBtn.style.display = 'none';
+//         e.prompt().then(() => e = null);
+//     });
     
-    document.body.appendChild(installBtn);
-});
+//     document.body.appendChild(installBtn);
+// });
 
 // Initialize application
 window.addEventListener("load", () => {
@@ -439,3 +520,11 @@ window.addEventListener("load", () => {
     setupPackagingTableListener();// Start real-time table updates
     setupEventListeners();        // Register event handlers
 });
+
+// ⚠️ Temporary code - REMOVE LATER ⚠️
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => registration.unregister());
+      console.log('All Service Workers unregistered');
+    });
+  }

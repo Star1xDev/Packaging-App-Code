@@ -186,6 +186,27 @@ p {
 }
 
 /* Packaging Table Container */
+
+/* Ensure buttons align nicely with the table header */
+#packaging-table-container h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+#undo-button, #redo-button {
+    padding: 5px 10px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+#undo-button:disabled, #redo-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
 #packaging-table-container {
     background: white;
     padding: 20px;

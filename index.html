@@ -86,7 +86,11 @@
 
     <!-- Packaging Table -->
     <div id="packaging-table-container" style="display: none;">
-        <h2>Packaging Data</h2>
+        <h2>
+            Packaging Data 
+            <button id="undo-button" disabled style="background: #ff9800; margin-left: 10px;">↩ Undo</button>
+            <button id="redo-button" disabled style="background: #4CAF50;">↪ Redo</button>
+        </h2>
         <table id="packaging-table">
             <thead>
                 <tr>
@@ -113,17 +117,23 @@
         <button id="cancel-action">Cancel</button>
     </div>
 
-    <!-- Scripts -->
+    
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="app.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/Packaging-App-Code/sw.js', { scope: '/Packaging-App-Code/' })
-                    .then(reg => console.log('Service Worker registered:', reg))
-                    .catch(err => console.log('Service Worker registration failed:', err));
-            });
-        }
-    </script>
+    
+    
 </body>
 </html>
+
+
+<!--
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/Packaging-App-Code/sw.js', { scope: '/Packaging-App-Code/' })
+                .then(reg => console.log('Service Worker registered:', reg))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        });
+    }
+</script>
+-->
