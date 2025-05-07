@@ -11,8 +11,9 @@ const state = {
     currentProduct: null,       // Currently selected product object
     selectedVariantIndex: null, // Index of selected product variant
     allProducts: [],            // Cache of all products for search
-    // undoStack: [],              // Stores actions for undo
-    // redoStack: []               // Stores actions for redo
+    isAdding: true,             // Operation mode (add/subtract)
+    undoStack: [],              // Stores actions for undo
+    redoStack: []               // Stores actions for redo
 };
 
 // ==================================================
@@ -171,21 +172,23 @@ async function loadReturnData(variantIndex) {
 }
 
 async function saveReturn() {
+    // Validate selection and inputs
     if (!state.currentProduct || state.selectedVariantIndex === null) {
-        alert("Select a product and variant first!");
+        alert("Please select a product and variant first!");
         return;
     }
 
     const returnedQuantity = parseInt(dom.returnedQty.value) || 0;
     if (!validateInput(returnedQuantity, "Returned Quantity")) return;
 
+    // Show saving indicator
     dom.saveSpinner.style.display = "block";
     const returnsRef = doc(db, "returns", state.currentProduct.productId);
 
     try {
         await runTransaction(db, async (transaction) => {
             const docSnap = await transaction.get(returnsRef);
-            if (!docSnap.exists()) throw new Error("Document not found!");
+            if (!docSnap.exists()) throw new Error("Returns document not found!");
 
             const returnsData = docSnap.data();
             const variant = returnsData.variants[state.selectedVariantIndex];
@@ -195,27 +198,46 @@ async function saveReturn() {
                 returned: variant.returnedQuantity
             };
 
-            variant.returnedQuantity += returnedQuantity;
+            // Calculate new value based on operation mode
+            let newQuantity;
+            if (state.isAdding) {
+                newQuantity = variant.returnedQuantity + returnedQuantity;
+            } else {
+                newQuantity = variant.returnedQuantity - returnedQuantity;
+                if (newQuantity < 0) {
+                    throw new Error("Cannot have negative returned quantity!");
+                }
+            }
 
+            // Update variant
+            variant.returnedQuantity = newQuantity;
+
+            // Commit transaction
             transaction.update(returnsRef, { variants: returnsData.variants });
 
-            // Record undo action
+            // Record action for undo
             state.undoStack.push({
                 productId: state.currentProduct.productId,
                 variantIndex: state.selectedVariantIndex,
-                oldValues,
+                oldValues: oldValues,
                 newValues: {
-                    returned: variant.returnedQuantity
+                    returned: newQuantity
                 }
             });
+
+            // Clear redo stack
             state.redoStack = [];
         });
 
-        alert("Return saved!");
+        // Success feedback
+        alert(`Return ${state.isAdding ? 'added' : 'subtracted'} successfully!`);
         updateUndoRedoButtons();
+        
     } catch (error) {
-        alert(error.message);
+        console.error("Save failed:", error);
+        alert(`Error: ${error.message}`);
     } finally {
+        // Cleanup
         dom.saveSpinner.style.display = "none";
         await loadReturnData(state.selectedVariantIndex);
         dom.returnedQty.value = "";
@@ -250,21 +272,33 @@ async function undoLastAction() {
 async function redoLastAction() {
     if (state.redoStack.length === 0) return;
 
-    state.redoStack.pop();
-    const action = state.undoStack[state.undoStack.length - 1];
+    // Get the last undone action (don't pop yet)
+    const action = state.redoStack[state.redoStack.length - 1];
     const returnsRef = doc(db, "returns", action.productId);
 
-    await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(returnsRef);
-        const variants = [...docSnap.data().variants];
-        variants[action.variantIndex] = {
-            ...variants[action.variantIndex],
-            returnedQuantity: action.newValues.returned
-        };
-        transaction.update(returnsRef, { variants });
-    });
+    try {
+        await runTransaction(db, async (transaction) => {
+            const docSnap = await transaction.get(returnsRef);
+            const variants = [...docSnap.data().variants];
+            
+            // Apply the redo values
+            variants[action.variantIndex] = {
+                ...variants[action.variantIndex],
+                returnedQuantity: action.newValues.returned
+            };
+            
+            transaction.update(returnsRef, { variants });
+        });
 
-    updateUndoRedoButtons();
+        // Move action from redo stack back to undo stack
+        state.redoStack.pop();
+        state.undoStack.push(action);
+        
+        updateUndoRedoButtons();
+    } catch (error) {
+        console.error("Redo failed:", error);
+        alert("Error during redo: " + error.message);
+    }
 }
 
 // ==================================================
@@ -318,6 +352,13 @@ function toggleReturnsTable() {
 // ==================================================
 
 function setupEventListeners() {
+
+    // Add to your setupEventListeners() function
+    document.getElementById("toggle-operation").addEventListener("click", function() {
+        state.isAdding = !state.isAdding;
+        this.textContent = state.isAdding ? "+ Add" : "- Subtract";
+        this.classList.toggle("subtract", !state.isAdding);
+    });
     // Admin controls
     document.getElementById("generate-returns").addEventListener("click", generateReturnsCollection);
     document.getElementById("toggle-returns-table").addEventListener("click", toggleReturnsTable);
