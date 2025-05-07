@@ -15,22 +15,22 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
     
-    <title>Packaging App</title>
+    <title>Returns Processing</title>
 </head>
 <body>
     <!-- Navigation -->
     <nav>
         <ul>
-            <li><a href="#packager" class="active">🏠 Packager</a></li>
+            <li><a href="index.html">🏠 Packager</a></li>
             <li><a href="#manager">📦 Manager</a></li>
-            <li><a href="returns.html">🔄 Returns</a></li>
+            <li><a href="#returns" class="active">🔄 Returns</a></li>
         </ul>
     </nav>
 
     <!-- Header -->
     <header>
-        <h1>Packaging App</h1>
-        <p>Total Packaged Today: <span id="total-packaged">0</span> units</p>
+        <h1>Returns Processing</h1>
+        <p>Total Returns Today: <span id="total-returns">0</span> units</p>
     </header>
 
     <!-- Barcode Section -->
@@ -42,33 +42,24 @@
 
     <!-- Product Details Section -->
     <div id="product-details" style="display: none;">
-        <h2>Product Details</h2>
+        <h2>Return Details</h2>
         <p id="product-name"></p>
 
         <!-- Variant Selection -->
         <div id="variant-options"></div>
 
         <!-- Display Current Values -->
-        <p>Current Packaged Quantity: <span id="current-packaged"></span></p>
-        <p>Current Used Stock: <span id="current-used"></span></p>
+        <p>Current Returned Quantity: <span id="current-returned">0</span></p>
 
-        <!-- Input Fields -->
+        <!-- Input Field -->
         <div>
-            <label for="packaged-quantity">Packaged Quantity:</label>
-            <input type="number" id="packaged-quantity" placeholder="Enter quantity" min="0">
+            <label for="returned-qty">Returned Quantity:</label>
+            <input type="number" id="returned-qty" placeholder="Enter quantity" min="0">
         </div>
-        <div>
-            <label for="used-stock">Used Stock:</label>
-            <input type="number" id="used-stock" placeholder="Enter used stock" min="0">
-        </div>
-
-        <!-- Toggle Button -->
-        <button id="toggle-operation">+ Add</button>
-        <br>
 
         <!-- Save and Cancel Buttons -->
-        <button id="save-packaging">Save</button>
-        <button id="cancel-scan">Cancel</button>
+        <button id="save-return">Save Return</button>
+        <button id="cancel-return">Cancel</button>
 
         <!-- Save Spinner -->
         <div class="loading-spinner" id="save-spinner">
@@ -77,27 +68,26 @@
         </div>
     </div>
 
-    <!-- Admin Actions -->
+    <!-- In the admin-actions div, add this button -->
     <div class="admin-actions">
-        <button id="generate-packaging">Generate Packaging Collection</button>
-        <button id="reset-packaging">Reset Packaging Data</button>
-        <button id="toggle-packaging-table">Show Packaging Table</button>
+        <button id="generate-returns">Initialize Returns Collection</button>
+        <button id="reset-returns">Reset Returns Data</button> <!-- Add this line -->
+        <button id="toggle-returns-table">Show Returns Table</button>
     </div>
 
-    <!-- Packaging Table -->
-    <div id="packaging-table-container" style="display: none;">
+    <!-- Returns Table -->
+    <div id="returns-table-container" style="display: none;">
         <h2>
-            Packaging Data 
+            Returns Data
             <button id="undo-button" disabled style="background: #ff9800; margin-left: 10px;">↩ Undo</button>
-            <button id="redo-button" disabled style="background: #4CAF50;">↪ Redo</button>
+            <button id="redo-button" disabled style="background: #4CAF50; margin-left: 5px;">↪ Redo</button>
         </h2>
-        <table id="packaging-table">
+        <table id="returns-table">
             <thead>
                 <tr>
                     <th>Product Name</th>
                     <th>Variant Name</th>
-                    <th>Packaged Quantity</th>
-                    <th>Used Stock</th>
+                    <th>Returned Quantity</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -117,23 +107,7 @@
         <button id="cancel-action">Cancel</button>
     </div>
 
-    
     <script type="module" src="firebase-config.js"></script>
-    <script type="module" src="app.js"></script>
-    
-    
+    <script type="module" src="returns.js"></script>
 </body>
 </html>
-
-
-<!--
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/Packaging-App-Code/sw.js', { scope: '/Packaging-App-Code/' })
-                .then(reg => console.log('Service Worker registered:', reg))
-                .catch(err => console.log('Service Worker registration failed:', err));
-        });
-    }
-</script>
--->
