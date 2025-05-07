@@ -463,3 +463,35 @@ td[title]:hover::after {
 #cancel-action:hover {
     background-color: #c0392b;
 }
+
+/* manager page css */
+
+.manager-container {
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+  }
+  
+  .btn-primary {
+    background: #3498db;
+    color: white;
+  }
+  
+  .btn-danger {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  #archive-status {
+    padding: 10px;
+    border-radius: 5px;
+  }

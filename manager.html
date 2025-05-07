@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manager Panel</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav>
+        <ul>
+            <li><a href="index.html" >🏠 Packager</a></li>
+            <li><a href="manager.html" class="active">📦 Manager</a></li>
+            <li><a href="returns.html">🔄 Returns</a></li>
+        </ul>
+    </nav>
+    <div class="manager-container">
+    <h1>📦 End-of-Day Processing</h1>
+
+    <div class="action-buttons">
+        <button id="archive-day" class="btn-primary">💾 Archive Today's Data</button>
+        <button id="reset-packaging" class="btn-danger">♻️ Reset Packaging Table</button>
+    </div>
+
+    <div id="archive-status"></div>
+    </div>
+
+  <script type="module" src="manager.js"></script>
+</body>
+</html>
