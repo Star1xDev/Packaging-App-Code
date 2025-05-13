@@ -1,0 +1,165 @@
+/* product-form.css */
+/* Base Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+.container {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+h1, h2 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+/* Form Steps */
+.form-step {
+    display: none;
+    padding: 1.5rem;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    margin-bottom: 1.5rem;
+}
+
+.form-step.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Input Fields */
+label {
+    display: block;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+input[type="text"],
+input[type="number"] {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    margin-top: 0.3rem;
+}
+
+/* Dimension Tags */
+#dimensions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.dimension-tag {
+    background: #3498db;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.dimension-tag:hover {
+    background: #2980b9;
+}
+
+#selected-dimensions {
+    margin: 1rem 0;
+    min-height: 2rem;
+}
+
+/* Variant Table */
+#variants-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+#variants-table th, 
+#variants-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+#variants-table th {
+    background: #f2f2f2;
+    font-weight: 600;
+}
+
+#variants-table tr:hover {
+    background: #f9f9f9;
+}
+
+#variants-table input[type="number"] {
+    width: 80px;
+    padding: 0.3rem;
+}
+
+/* Buttons */
+button {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #2980b9;
+}
+
+button:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    #variants-table {
+        font-size: 0.9rem;
+    }
+}
+
+.no-variants-option {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.no-variants-option label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+#no-variants-checkbox {
+    width: auto;
+    margin: 0;
+}

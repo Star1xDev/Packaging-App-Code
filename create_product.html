@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Product</title>
+    <link rel="stylesheet" href="product_form.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Create New Product</h1>
+        
+        <!-- Step 1: Basic Info -->
+        <div id="step-1" class="form-step active">
+            <h2>Product Details</h2>
+            <label>
+                Product Name:
+                <input type="text" id="product-name" required>
+            </label>
+            <label>
+                Packaging Price:
+                <input type="number" id="packaging-price" step="0.01" min="0">
+            </label>
+            <button id="next-to-step-2">Next →</button>
+        </div>
+
+        <!-- Step 2: Define Variant Dimensions -->
+        <div id="step-2" class="form-step">
+            <h2>Variant Dimensions</h2>
+            <p>Select or add dimensions (e.g., color, size):</p>
+            
+            <div id="dimensions-container">
+                <!-- Predefined options + custom input -->
+                <div class="dimension-tag" data-dimension="color">Color</div>
+                <div class="dimension-tag" data-dimension="size">Size</div>
+                <div class="dimension-tag" data-dimension="material">Material</div>
+                <input type="text" id="custom-dimension" placeholder="Add custom (e.g., scent)">
+                <!-- Add this below dimension tags in create-product.html -->
+                <div class="no-variants-option">
+                    <label>
+                        <input type="checkbox" id="no-variants-checkbox"> 
+                        This product has no variants
+                    </label>
+                </div>
+            </div>
+            
+            <div id="selected-dimensions"></div>
+            <button id="next-to-step-3">Next →</button>
+        </div>
+
+        <!-- Step 3: Define Values for Each Dimension -->
+        <div id="step-3" class="form-step">
+            <h2>Define Values</h2>
+            <div id="dimension-values-container">
+                <!-- Dynamically generated inputs -->
+                <!-- Example for "color":
+                <label>
+                    Color values (comma-separated):
+                    <input type="text" data-dimension="color" placeholder="Red, Blue, Green">
+                </label>
+                -->
+            </div>
+            <button id="generate-variants">Generate Variants</button>
+        </div>
+
+        <!-- Step 4: Review Variants -->
+        <div id="step-4" class="form-step">
+            <h2>Review Variants</h2>
+            <table id="variants-table">
+                <!-- Step 4: Update table headers -->
+                <thead>
+                    <tr>
+                        <th>Include?</th>
+                        <th>Variant Name</th>  <!-- Changed from Variant ID -->
+                        <th>Attributes</th>
+                        <!-- REMOVED Price column -->
+                        <th>Current Stock</th>  <!-- Renamed from Inventory -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Dynamically filled -->
+                </tbody>
+            </table>
+            <button id="save-product">Save Product</button>
+        </div>
+    </div>
+
+    <script type="module" src="product_form.js"></script>
+</body>
+</html>
