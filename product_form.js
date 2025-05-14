@@ -4,7 +4,8 @@ import { doc, setDoc } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-
 // App state to track the product creation process
 const state = {
     productName: "",
-    packagingPrice: 0, 
+    packagingPrice: 0,
+    trackPackaging: false,
     variantDimensions: [],  // Example: ["color", "size"]
     dimensionValues: {},    // Example: { color: ["Red", "Blue"], size: ["S", "M"] }
     variants: []            // Final variant objects with attributes like price/inventory
@@ -18,6 +19,7 @@ const dom = {
     step4: document.getElementById("step-4"),
     productName: document.getElementById("product-name"),
     packagingPrice: document.getElementById("packaging-price"),
+    trackPackaging : document.getElementById("track-packaging"),
     dimensionsContainer: document.getElementById("dimensions-container"),
     selectedDimensions: document.getElementById("selected-dimensions"),
     dimensionValuesContainer: document.getElementById("dimension-values-container"),
@@ -28,21 +30,31 @@ const dom = {
 // ===============================
 // Step 1 → Step 2 (Product Name)
 // ===============================
+// ===============================
+// Step 1 → Step 2 (Product Name)
+// ===============================
 document.getElementById("next-to-step-2").addEventListener("click", () => {
     console.log("Moving to Step 2");
+    // Validate that the product name is provided
     if (!dom.productName.value) return alert("Enter a product name!");
+    // Validate that the packaging price is not negative
     if (dom.packagingPrice.value < 0) return alert("Enter a valid packaging price!");
-    if (!dom.packagingPrice.value) {
-        state.packagingPrice = 0; // Default to 0 if not provided
-    }
-    state.packagingPrice = parseFloat(dom.packagingPrice.value);
+    // Default packaging price to 0 if empty
+    state.packagingPrice = dom.packagingPrice.value
+        ? parseFloat(dom.packagingPrice.value)
+        : 0;
     console.log("Packaging Price:", state.packagingPrice);
+    // Save product name
     state.productName = dom.productName.value;
     console.log("Product Name:", state.productName);
-
+    // Save checkbox value (true if checked, false otherwise)
+    state.trackPackaging = document.getElementById("track-packaging").checked;
+    console.log("Track Packaging:", state.trackPackaging);
+    // Move to Step 2
     dom.step1.classList.remove("active");
     dom.step2.classList.add("active");
 });
+
 
 // ====================================
 // Handle clicking on dimension tags
@@ -187,6 +199,7 @@ dom.saveProductBtn.addEventListener("click", async () => {
             productId,
             productName: state.productName,
             packagingPrice: state.packagingPrice, // Always include packaging price
+            trackPackaging: state.trackPackaging,
             variantDimensions: state.variantDimensions,
             variants: state.variants.filter(v => v.isActive)  // Save only active variants
         });

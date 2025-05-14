@@ -76,8 +76,13 @@ function resetProductDetails() {
 
 // Fetch all products from Firestore
 async function fetchAllProducts() {
-    const productsSnapshot = await getDocs(collection(db, "products"));
+    const productsSnapshot = await getDocs(
+        query(collection(db, "products"), 
+        where("trackPackaging", "==", true))
+    );
+    // Store all products in state
     state.allProducts = productsSnapshot.docs.map(doc => doc.data());
+    console.log(allProducts);
 }
 
 // Get single product with variant handling
