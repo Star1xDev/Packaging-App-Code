@@ -1,21 +1,24 @@
 // Import Firebase configuration and Firestore services
 import { db } from "./firebase-config.js";
 import {
-    collection, getDocs, doc, setDoc, getDoc,
-    updateDoc, onSnapshot, runTransaction,
+    collection, getDocs, doc, setDoc, getDoc, writeBatch,
+    updateDoc, onSnapshot, runTransaction, query, where,
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 
 // ==================================================
 // STATE MANAGEMENT
 // ==================================================
 const state = {
-    currentProduct: null,       // Currently selected product object
-    selectedVariantIndex: null, // Index of selected product variant
-    isAdding: true,             // Operation mode (add/subtract)
-    allProducts: [],             // Cache of all products for search
-    undoStack: [],  // Stores actions for undo
-    redoStack: []   // Stores actions for redo
+  currentProduct: null,
+  isAdding: true,
+  allProducts: [],
+  undoStack: [],
+  redoStack: [],
+  selectedAttributes: {},  // Simple {color: "red", size: "large"} 
+  activeVariant: null,  // This will be set when a variant is selected
 };
+
+
 
 // ==================================================
 // DOM REFERENCES
@@ -24,7 +27,6 @@ const dom = {
     productInput: document.getElementById("product-name-input"),         // Product search input
     autocomplete: document.getElementById("autocomplete-suggestions"),  // Autocomplete dropdown
     productDetails: document.getElementById("product-details"),          // Product details container
-    variantOptions: document.getElementById("variant-options"),          // Variant selection radio buttons
     currentPackaged: document.getElementById("current-packaged"),        // Current packaged quantity display
     currentUsed: document.getElementById("current-used"),                // Current used stock display
     packagedQuantity: document.getElementById("packaged-quantity"),      // Packaged quantity input
@@ -51,23 +53,75 @@ function validateInput(value, fieldName) {
     return true;
 }
 
-// Clear product detail UI elements
-function resetProductDetailsUI() {
-    dom.currentPackaged.textContent = "";
-    dom.currentUsed.textContent = "";
-    dom.packagedQuantity.value = "";
-    dom.usedStock.value = "";
-    dom.variantOptions.innerHTML = "";
+function getInputValues() {
+  return {
+    packagedQuantity: parseInt(dom.packagedQuantity.value) || 0,
+    usedStock: parseInt(dom.usedStock.value) || 0
+  };
+}
+
+function validatePackagingInput() {
+  const values = getInputValues();
+  
+  if (isNaN(values.packagedQuantity) || values.packagedQuantity < 0) {
+    alert("Packaged quantity must be ≥ 0");
+    return false;
+  }
+  
+  if (isNaN(values.usedStock) || values.usedStock < 0) {
+    alert("Used stock must be ≥ 0");
+    return false;
+  }
+  
+  return true;
 }
 
 // Full reset of product details and search
 function resetProductDetails() {
-    dom.productInput.value = "";
-    dom.autocomplete.style.display = "none";
-    dom.productDetails.style.display = "none";
-    dom.variantOptions.innerHTML = "";
-    state.currentProduct = null;
-    state.selectedVariantIndex = null;
+  // Clear inputs
+  dom.packagedQuantity.value = "";
+  dom.usedStock.value = "";
+  
+  // Reset ALL displays to 0 (crucial fix)
+  dom.currentPackaged.textContent = "0";
+  dom.currentUsed.textContent = "0";
+  
+  // Clear state
+  state.currentProduct = null;
+  state.selectedAttributes = {};
+  state.activeVariant = null;
+  
+  // UI Cleanup
+  dom.productInput.value = "";
+  dom.autocomplete.style.display = "none";
+  dom.productDetails.style.display = "none";
+  document.getElementById("variant-selector").innerHTML = "";
+}
+
+// Get unique values for a dimension (e.g. ["Red", "Blue"] for "color")
+function getUniqueValues(dimension) {
+  if (!state.currentProduct?.variants) return [];
+  return [...new Set(
+    state.currentProduct.variants.map(v => v.attributes[dimension])
+  )].filter(Boolean); // Remove undefined/empty
+}
+
+// Simple deep equality check (for variant matching)
+function deepEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function updateQuantityDisplay() {
+  if (!state.activeVariant) return;
+  
+  // FIX 3: Ensure we show current values even if null/undefined
+  dom.currentPackaged.textContent = state.activeVariant.packagedQuantity ?? 0;
+  dom.currentUsed.textContent = state.activeVariant.usedStock ?? 0;
+  
+  // FIX 4: Visual feedback for current mode
+  const toggleBtn = document.getElementById('toggle-operation');
+  toggleBtn.textContent = state.isAdding ? '+ Add' : '- Subtract';
+  toggleBtn.style.backgroundColor = state.isAdding ? '#3498db' : '#e74c3c';
 }
 
 // ==================================================
@@ -75,14 +129,20 @@ function resetProductDetails() {
 // ==================================================
 
 // Fetch all products from Firestore
+// Add this to fetchAllProducts() to ensure fresh data
 async function fetchAllProducts() {
-    const productsSnapshot = await getDocs(
-        query(collection(db, "products"), 
-        where("trackPackaging", "==", true))
-    );
-    // Store all products in state
-    state.allProducts = productsSnapshot.docs.map(doc => doc.data());
-    console.log(allProducts);
+  const snapshot = await getDocs(collection(db, "packaging"));
+  state.allProducts = snapshot.docs.map(doc => ({
+    productId: doc.id,
+    name: doc.data().productName,
+    variants: doc.data().variants.map(v => ({
+      ...v,
+      // Ensure numeric values
+      packagedQuantity: Number(v.packagedQuantity) || 0,
+      usedStock: Number(v.usedStock) || 0
+    })),
+    variantDimensions: doc.data().variantDimensions
+  }));
 }
 
 // Get single product with variant handling
@@ -101,61 +161,97 @@ async function fetchProduct(productId) {
 
 // Initialize packaging collection from products
 async function generatePackagingCollection() {
-    const productsSnapshot = await getDocs(collection(db, "products"));
-    
-    // Process each product document
-    for (const productDoc of productsSnapshot.docs) {
-        const productData = productDoc.data();
-        if (!productData.productId) continue;
+  const [productsSnapshot, existingPackagingSnapshot] = await Promise.all([
+    getDocs(query(collection(db, "products"), where("trackPackaging", "==", true))),
+    getDocs(collection(db, "packaging"))
+  ]);
 
-        const packagingRef = doc(db, "packaging", productData.productId);
-        const packagingSnap = await getDoc(packagingRef);
-        
-        // Create packaging doc if it doesn't exist
-        if (!packagingSnap.exists()) {
-            const variants = productData.variants?.length ? 
-                // Map product variants to packaging structure
-                productData.variants.map(v => ({
-                    variantId: v.variantId,
-                    name: v.name,
-                    packagedQuantity: 0,
-                    usedStock: 0
-                })) : 
-                // Create default variant
-                [{ variantId: "default", name: "Default", packagedQuantity: 0, usedStock: 0 }];
+  const batch = writeBatch(db);
 
-            // Create new packaging document
-            await setDoc(packagingRef, {
-                productId: productData.productId,
-                variants
-            }, { merge: true });
-        }
+  // Keep track of all packaging productIds
+  const activeProductIds = new Set();
+  const newProductIds = new Set();
+
+  // STEP 1: Process all active products
+  for (const productDoc of productsSnapshot.docs) {
+    const productData = productDoc.data();
+    const packagingRef = doc(db, "packaging", productData.productId);
+    const packagingSnap = await getDoc(packagingRef);
+
+    newProductIds.add(productData.productId);
+
+    const existingData = packagingSnap.exists() ? packagingSnap.data() : null;
+    const existingVariants = existingData?.variants || [];
+
+    const countMap = new Map();
+    existingVariants.forEach(v => {
+      countMap.set(v.variantId, {
+        packaged: v.packagedQuantity,
+        used: v.usedStock
+      });
+    });
+
+    const activeVariants = productData.variants
+      ?.filter(v => v.isActive !== false)
+      ?.map(v => ({
+        variantId: v.variantId,
+        variantName: v.variantName,
+        attributes: v.attributes,
+        packagedQuantity: countMap.get(v.variantId)?.packaged || 0,
+        usedStock: countMap.get(v.variantId)?.used || 0
+      })) || [];
+
+    if (activeVariants.length > 0) {
+      batch.set(packagingRef, {
+        productId: productData.productId,
+        productName: productData.productName,
+        variantDimensions: productData.variantDimensions || [],
+        variants: activeVariants
+      }, { merge: true });
+    } else {
+      batch.delete(packagingRef);
     }
-    alert("Packaging collection created/updated!");
-    resetProductDetails();
+  }
+
+  // STEP 2: Delete packaging docs for products that are no longer tracking packaging
+  for (const packagingDoc of existingPackagingSnapshot.docs) {
+    const packagingData = packagingDoc.data();
+    const packagingProductId = packagingData.productId;
+
+    if (!newProductIds.has(packagingProductId)) {
+      const packagingRef = doc(db, "packaging", packagingProductId);
+      batch.delete(packagingRef);
+    }
+  }
+
+  await batch.commit();
+  fetchAllProducts(); // Refresh product list
+  alert("Packaging collection updated safely!");
 }
+
 
 // Reset all packaging data to zero
 async function resetPackagingData() {
-    const packagingSnapshot = await getDocs(collection(db, "packaging"));
-    
-    // Update each packaging document
-    for (const packagingDoc of packagingSnapshot.docs) {
-        const packagingRef = doc(db, "packaging", packagingDoc.id);
-        const packagingData = packagingDoc.data();
-        
-        // Reset variant values
-        packagingData.variants.forEach(variant => {
-            variant.packagedQuantity = 0;
-            variant.usedStock = 0;
-        });
-        
-        // Update Firestore document
-        await updateDoc(packagingRef, { variants: packagingData.variants });
-    }
-    
-    alert("All packaging data reset!");
-    resetProductDetails();
+  const snapshot = await getDocs(collection(db, "packaging"));
+  const batch = writeBatch(db);
+  let updatedCount = 0;
+
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const variants = Array.isArray(data.variants) ? data.variants : [];
+
+    const updatedVariants = variants.map(v => ({
+      ...v,
+      packagedQuantity: 0,
+      usedStock: 0
+    }));
+
+    batch.update(doc.ref, { variants: updatedVariants });
+    updatedCount++;
+  });
+
+  await batch.commit();
+  alert(`Packaging data reset for ${updatedCount} products.`);
 }
 
 // ==================================================
@@ -163,147 +259,282 @@ async function resetPackagingData() {
 // ==================================================
 
 // Handle product selection and display details
+// ==================================================
+// MODIFY scanBarcode()
+// ==================================================
+// Update scanBarcode()
 async function scanBarcode(productId) {
-    const product = await fetchProduct(productId);
-    if (!product) return;
+  // Reset everything first (new)
+  resetProductDetails();
+  
+  const product = state.allProducts.find(p => p.productId === productId);
+  if (!product?.variants?.length) return;
 
-    // Reset UI and update state
-    dom.productInput.value = "";
-    resetProductDetailsUI();
-    state.currentProduct = product;
-    document.getElementById("product-name").textContent = product.name;
+  state.currentProduct = product;
+  document.getElementById("product-name").textContent = product.name;
 
-    // Handle variant display
-    if (product.variants.length === 1 && product.variants[0].variantId === "default") {
-        // Single variant handling
-        dom.variantOptions.style.display = "none";
-        state.selectedVariantIndex = 0;
-        await loadPackagingData(0);
-    } else {
-        // Multiple variants handling
-        dom.variantOptions.style.display = "block";
-        // Generate radio buttons for variants
-        dom.variantOptions.innerHTML = product.variants
-            .map((v, index) => `
-                <label>
-                    <input type="radio" name="variant" value="${index}" data-index="${index}">
-                    ${v.name}
-                </label>
-            `).join("");
-
-        // Add variant selection handlers
-        document.querySelectorAll("input[name='variant']").forEach(input => {
-            input.addEventListener("click", () => {
-                state.selectedVariantIndex = input.dataset.index;
-                loadPackagingData(state.selectedVariantIndex);
-            });
-        });
-    }
-    dom.productDetails.style.display = "block";
+  if (product.variants.length === 1) {
+    autoSelectVariant(product.variants[0]);
+  } else {
+    renderVariantChips();
+  }
+  
+  dom.productDetails.style.display = "block";
 }
 
-// Load and display packaging data for selected variant
-async function loadPackagingData(variantIndex) {
-    if (!state.currentProduct) return;
 
-    const packagingRef = doc(db, "packaging", state.currentProduct.productId);
-    const packagingSnap = await getDoc(packagingRef);
+// ==================================================
+// VARIANT SELECTION SYSTEM (Complete Implementation)
+// ==================================================
 
-    if (packagingSnap.exists()) {
-        const packagingData = packagingSnap.data();
-        const variant = packagingData.variants[variantIndex];
-        
-        if (variant) {
-            // Update UI with current values
-            dom.currentPackaged.textContent = variant.packagedQuantity;
-            dom.currentUsed.textContent = variant.usedStock;
-            state.selectedVariantIndex = variantIndex;
-            dom.packagedQuantity.focus();
-        } else {
-            alert("Selected variant not found!");
-        }
-    } else {
-        alert("Packaging data not found!");
-    }
+function autoSelectVariant(variant) {
+  state.selectedAttributes = {...variant.attributes};
+  state.activeVariant = variant;
+  updateQuantityDisplay();
+  renderVariantChips(); // Re-render to show selection
 }
+
+/**
+ * Checks if a variant exists with the given attributes
+ * @param {Object} attributes - The attributes to check (e.g. {color: "red"})
+ * @returns {boolean} True if at least one variant matches
+ */
+function isVariantAvailable(attributes) {
+  return state.currentProduct.variants.some(v => {
+    // Check if variant matches all currently selected attributes
+    return Object.keys(attributes).every(
+      dim => v.attributes[dim] === attributes[dim]
+    );
+  });
+}
+
+/**
+ * Renders dimension chips with proper enabled/disabled states
+ */
+function renderVariantChips() {
+  const container = document.getElementById('variant-selector');
+  if (!state.currentProduct?.variantDimensions) return;
+
+  container.innerHTML = state.currentProduct.variantDimensions.map(dim => {
+    const allValues = getUniqueValues(dim);
+    const currentSelection = state.selectedAttributes[dim];
+
+    return `
+      <div class="dimension-group">
+        <h3>${dim.toUpperCase()}</h3>
+        <div class="chips">
+          ${allValues.map(val => {
+            const isSelected = currentSelection === val;
+            
+            // Only disable if:
+            // 1. Not currently selected
+            // 2. No variants exist with this value + other selections
+            const shouldDisable = !isSelected && 
+              !hasVariantWithSelection(dim, val);
+
+            return `
+              <button class="chip ${isSelected ? 'selected' : ''}
+                      ${shouldDisable ? 'disabled' : ''}"
+                      data-dim="${dim}" 
+                      data-val="${val}"
+                      ${shouldDisable ? 'tabindex="-1"' : ''}>
+                ${val}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Add event listeners
+  container.querySelectorAll('.chip:not(.disabled)').forEach(chip => {
+    chip.addEventListener('click', handleChipClick);
+  });
+}
+
+// Helper to check for variant existence
+function hasVariantWithSelection(dimension, value) {
+  const testAttributes = {
+    ...state.selectedAttributes,
+    [dimension]: value
+  };
+  
+  return state.currentProduct.variants.some(v => 
+    Object.keys(testAttributes).every(d => 
+      v.attributes[d] === testAttributes[d]
+    )
+  );
+}
+
+/**
+ * Handles chip selection and updates application state
+ */
+function handleChipClick(e) {
+  const chip = e.currentTarget;
+  const dim = chip.dataset.dim;
+  const val = chip.dataset.val;
+
+  // Toggle selection
+  if (state.selectedAttributes[dim] === val) {
+    // DESELECT - Clear this dimension
+    delete state.selectedAttributes[dim];
+    
+    // SPECIAL CASE: If this was the last dimension
+    if (Object.keys(state.selectedAttributes).length === 0) {
+      state.activeVariant = null;
+      dom.currentPackaged.textContent = "0";
+      dom.currentUsed.textContent = "0";
+    }
+  } else {
+    // SELECT - Update selection
+    state.selectedAttributes[dim] = val;
+  }
+
+  // Always find matching variant (may be null)
+  state.activeVariant = findVariant();
+  
+  // Update UI based on current state
+  if (state.activeVariant) {
+    updateQuantityDisplay();
+  } else {
+    // Explicitly clear if no variant matches
+    dom.currentPackaged.textContent = "0";
+    dom.currentUsed.textContent = "0";
+  }
+
+  // Re-render chips to update visual states
+  renderVariantChips();
+}
+
+/**
+ * Finds the first variant matching current attribute selections
+ * @returns {Object|null} The matching variant or null
+ */
+function findVariant() {
+  const selectedDims = Object.keys(state.selectedAttributes);
+  
+  // No selection case
+  if (selectedDims.length === 0) return null;
+  
+  // Check against product's variant dimensions
+  const allDims = state.currentProduct.variantDimensions || [];
+  
+  // Only match if ALL dimensions are selected
+  if (selectedDims.length !== allDims.length) return null;
+  
+  return state.currentProduct.variants.find(v => 
+    allDims.every(dim => 
+      v.attributes[dim] === state.selectedAttributes[dim]
+    )
+  );
+}
+
 
 // Save packaging data changes to Firestore
 async function savePackagingData() {
-    if (!state.currentProduct || state.selectedVariantIndex === null) {
-        alert("Select a product and variant first!");
-        return;
+  if (!state.activeVariant || !validatePackagingInput()) return;
+  
+  const { packagedQuantity, usedStock } = getInputValues();
+  const packagingRef = doc(db, "packaging", state.currentProduct.productId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(packagingRef);
+      const variants = [...docSnap.data().variants];
+      
+      const variantIndex = variants.findIndex(
+        v => v.variantId === state.activeVariant.variantId
+      );
+      
+      if (variantIndex === -1) throw new Error("Variant not found");
+      
+      const variant = variants[variantIndex];
+      const oldValues = {
+        packaged: variant.packagedQuantity,
+        used: variant.usedStock
+      };
+      
+      // Update values
+      if (state.isAdding) {
+        variant.packagedQuantity += packagedQuantity;
+        variant.usedStock += usedStock;
+      } else {
+        variant.packagedQuantity = Math.max(0, variant.packagedQuantity - packagedQuantity);
+        variant.usedStock = Math.max(0, variant.usedStock - usedStock);
+      }
+      
+      // Update local state (NEW)
+      const productIndex = state.allProducts.findIndex(
+        p => p.productId === state.currentProduct.productId
+      );
+      if (productIndex !== -1) {
+        const variantIndexLocal = state.allProducts[productIndex].variants.findIndex(
+          v => v.variantId === state.activeVariant.variantId
+        );
+        if (variantIndexLocal !== -1) {
+          state.allProducts[productIndex].variants[variantIndexLocal] = {
+            ...state.allProducts[productIndex].variants[variantIndexLocal],
+            packagedQuantity: variant.packagedQuantity,
+            usedStock: variant.usedStock
+          };
+        }
+      }
+      
+      // Push to undo stack
+      state.undoStack.push({
+        productId: state.currentProduct.productId,
+        variantId: state.activeVariant.variantId,
+        oldValues,
+        newValues: {
+          packaged: variant.packagedQuantity,
+          used: variant.usedStock
+        }
+      });
+      
+      transaction.update(packagingRef, { variants });
+    });
+    
+    refreshCurrentVariantData();
+    dom.packagedQuantity.value = "";
+    dom.usedStock.value = "";
+    
+  } catch (error) {
+    console.error("Save failed:", error);
+    alert("Save error: " + error.message);
+  }
+}
+
+// Add this new helper function
+async function refreshCurrentVariantData() {
+  if (!state.currentProduct?.productId) return;
+
+  const packagingRef = doc(db, "packaging", state.currentProduct.productId);
+  const docSnap = await getDoc(packagingRef);
+
+  if (docSnap.exists()) {
+    // Update allProducts array (NEW)
+    const productIndex = state.allProducts.findIndex(
+      p => p.productId === state.currentProduct.productId
+    );
+    if (productIndex !== -1) {
+      state.allProducts[productIndex] = {
+        ...state.allProducts[productIndex],
+        variants: docSnap.data().variants
+      };
     }
 
-    // Get input values
-    const packagedQuantity = parseInt(dom.packagedQuantity.value) || 0;
-    const usedStock = parseInt(dom.usedStock.value) || 0;
-
-    // Validate inputs
-    if (!validateInput(packagedQuantity, "Packaged Quantity") || 
-        !validateInput(usedStock, "Used Stock")) return;
-
-    // Show saving indicator
-    dom.saveSpinner.style.display = "block";
-    const packagingRef = doc(db, "packaging", state.currentProduct.productId);
-
-    try {
-        // Firestore transaction for atomic update
-        await runTransaction(db, async (transaction) => {
-            const packagingSnap = await transaction.get(packagingRef);
-            if (!packagingSnap.exists()) throw new Error("Document not found!");
-
-            const packagingData = packagingSnap.data();
-            const variant = packagingData.variants[state.selectedVariantIndex];
-
-            // Store OLD values before making changes
-            const oldValues = {
-                packaged: variant.packagedQuantity,
-                used: variant.usedStock
-            };
-
-            // Update values based on operation mode
-            if (state.isAdding) {
-                variant.packagedQuantity += packagedQuantity;
-                variant.usedStock += usedStock;
-            } else {
-                // Validate subtraction
-                if (variant.packagedQuantity - packagedQuantity < 0 || 
-                    variant.usedStock - usedStock < 0) {
-                    throw new Error("Cannot subtract more than current value!");
-                }
-                variant.packagedQuantity -= packagedQuantity;
-                variant.usedStock -= usedStock;
-            }
-
-            // Commit transaction
-            transaction.update(packagingRef, { variants: packagingData.variants });
-
-            // Record action for undo AFTER successful save
-            state.undoStack.push({
-                productId: state.currentProduct.productId,
-                variantIndex: state.selectedVariantIndex,
-                oldValues: oldValues,
-                newValues: {
-                    packaged: variant.packagedQuantity,
-                    used: variant.usedStock
-                }
-            });
-
-            // Clear redo stack
-            state.redoStack = [];
-        });
-
-        alert("Data updated successfully!");
-        updateUndoRedoButtons(); // Update button states
-    } catch (error) {
-        alert(error.message);
-    } finally {
-        // Cleanup after operation
-        dom.saveSpinner.style.display = "none";
-        await loadPackagingData(state.selectedVariantIndex);
-        dom.packagedQuantity.value = "";
-        dom.usedStock.value = "";
+    // Update active variant if exists
+    if (state.activeVariant) {
+      const updatedVariant = docSnap.data().variants.find(
+        v => v.variantId === state.activeVariant.variantId
+      );
+      if (updatedVariant) {
+        state.activeVariant = updatedVariant;
+        updateQuantityDisplay();
+      }
     }
+  }
 }
 
 // Update button states
@@ -312,53 +543,74 @@ function updateUndoRedoButtons() {
     document.getElementById('redo-button').disabled = state.redoStack.length === 0;
   }
   
-  // Undo function
-  async function undoLastAction() {
-    if (state.undoStack.length === 0) return;
-  
-    const action = state.undoStack.pop();
-    const packagingRef = doc(db, "packaging", action.productId);
-  
-    // Revert to old values
-    await runTransaction(db, async (transaction) => {
-      const docSnap = await transaction.get(packagingRef);
-      const variants = [...docSnap.data().variants];
-      variants[action.variantIndex] = {
-        ...variants[action.variantIndex],
-        packagedQuantity: action.oldValues.packaged,
-        usedStock: action.oldValues.used
-      };
-      transaction.update(packagingRef, { variants });
-    });
-  
-    // Push to redo stack
-    state.redoStack.push(action);
-    updateUndoRedoButtons();
+// Undo function
+async function undoLastAction() {
+  if (state.undoStack.length === 0) return;
+
+  const action = state.undoStack.pop();
+  const packagingRef = doc(db, "packaging", action.productId);
+
+  await runTransaction(db, async (transaction) => {
+    const docSnap = await transaction.get(packagingRef);
+    const variants = [...docSnap.data().variants];
+    
+    const variantIndex = variants.findIndex(
+      v => v.variantId === action.variantId
+    );
+    
+    variants[variantIndex] = {
+      ...variants[variantIndex],
+      packagedQuantity: action.oldValues.packaged,
+      usedStock: action.oldValues.used
+    };
+    
+    transaction.update(packagingRef, { variants });
+  });
+
+  // Update UI
+  if (state.currentProduct?.productId === action.productId) {
+    state.activeVariant.packagedQuantity = action.oldValues.packaged;
+    state.activeVariant.usedStock = action.oldValues.used;
+    updateQuantityDisplay();
   }
   
-  // Redo function
-  async function redoLastAction() {
-    if (state.redoStack.length === 0) return;
-  
-    const action = state.redoStack.pop();
-    const packagingRef = doc(db, "packaging", action.productId);
-  
-    // Re-apply new values
-    await runTransaction(db, async (transaction) => {
-      const docSnap = await transaction.get(packagingRef);
-      const variants = [...docSnap.data().variants];
-      variants[action.variantIndex] = {
-        ...variants[action.variantIndex],
-        packagedQuantity: action.newValues.packaged,
-        usedStock: action.newValues.used
-      };
-      transaction.update(packagingRef, { variants });
-    });
-  
-    // Push back to undo stack
-    state.undoStack.push(action);
-    updateUndoRedoButtons();
+  state.redoStack.push(action);
+  updateUndoRedoButtons();
+}
+
+async function redoLastAction() {
+  if (state.redoStack.length === 0) return;
+
+  const action = state.redoStack.pop();
+  const packagingRef = doc(db, "packaging", action.productId);
+
+  await runTransaction(db, async (transaction) => {
+    const docSnap = await transaction.get(packagingRef);
+    const variants = [...docSnap.data().variants];
+    
+    const variantIndex = variants.findIndex(
+      v => v.variantId === action.variantId
+    );
+    
+    variants[variantIndex] = {
+      ...variants[variantIndex],
+      packagedQuantity: action.newValues.packaged,
+      usedStock: action.newValues.used
+    };
+    
+    transaction.update(packagingRef, { variants });
+  });
+
+  // Update UI
+  if (state.currentProduct?.productId === action.productId) {
+    state.activeVariant.packagedQuantity = action.newValues.packaged;
+    state.activeVariant.usedStock = action.newValues.used;
+    updateQuantityDisplay();
   }
+  
+  state.undoStack.push(action);
+  updateUndoRedoButtons();
+}
 
 // ==================================================
 // AUTOCOMPLETE HANDLERS
@@ -404,49 +656,52 @@ dom.autocomplete.addEventListener("click", e => {
 
 // Set up real-time packaging table updates
 function setupPackagingTableListener() {
-    onSnapshot(collection(db, "packaging"), async (snapshot) => {
-        dom.loadingSpinner.style.display = "block";
-        dom.packagingTable.innerHTML = "";
-        let totalPackaged = 0, totalUsed = 0;
+  onSnapshot(collection(db, "packaging"), (snapshot) => {
+    dom.packagingTable.innerHTML = '';
+    let totalPackaged = 0, totalUsed = 0;
 
-        // Process each packaging document
-        for (const doc of snapshot.docs) {
-            const packagingData = doc.data();
-            const product = await fetchProduct(packagingData.productId);
+    snapshot.forEach(doc => {
+      const { productName, variants } = doc.data();
 
-            // Process each variant
-            packagingData.variants.forEach(variant => {
-                const variantName = product.variants.find(v => v.variantId === variant.variantId)?.name || "Unknown";
-                // Update totals
-                totalPackaged += variant.packagedQuantity;
-                totalUsed += variant.usedStock;
+      variants.forEach(variant => {
+        // Generate readable variant display
+        const variantDisplay = variant.variantName || 
+          Object.entries(variant.attributes || {})
+            .map(([dim, val]) => `${dim}:${val}`)
+            .join(', ') || "—";
 
-                // Add table row
-                dom.packagingTable.innerHTML += `
-                    <tr>
-                        <td title="ID: ${packagingData.productId}">${product.name}</td>
-                        <td title="ID: ${variant.variantId}">${variantName}</td>
-                        <td>${variant.packagedQuantity.toLocaleString()}</td>
-                        <td>${variant.usedStock.toLocaleString()}</td>
-                    </tr>
-                `;
-            });
-        }
+        // Update totals
+        totalPackaged += variant.packagedQuantity;
+        totalUsed += variant.usedStock;
 
-        // Add totals row
+        // Append table row with tooltips
         dom.packagingTable.innerHTML += `
-            <tr style="background: #007bff; color: #fff;">
-                <td colspan="2" style="text-align: center; font-weight: bold;">Total =</td>
-                <td>${totalPackaged.toLocaleString()}</td>
-                <td>${totalUsed.toLocaleString()}</td>
-            </tr>
+          <tr>
+            <td title="Product ID: ${doc.id}">${productName}</td>
+            <td title="Variant ID: ${variant.variantId || '—'}">${variantDisplay}</td>
+            <td>${variant.packagedQuantity.toLocaleString()}</td>
+            <td>${variant.usedStock.toLocaleString()}</td>
+          </tr>
         `;
-
-        // Update UI
-        dom.totalPackaged.textContent = totalPackaged.toLocaleString();
-        dom.loadingSpinner.style.display = "none";
+      });
     });
+
+    // Append totals row with visual styling
+    dom.packagingTable.innerHTML += `
+      <tr style="background: #007bff; color: #fff; font-weight: bold;">
+        <td colspan="2" style="text-align: center;">Total =</td>
+        <td>${totalPackaged.toLocaleString()}</td>
+        <td>${totalUsed.toLocaleString()}</td>
+      </tr>
+    `;
+
+    // Update header total display
+    dom.totalPackaged.textContent = totalPackaged.toLocaleString();
+  });
+
+   
 }
+
 
 // Toggle packaging table visibility
 function togglePackagingTable() {
