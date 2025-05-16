@@ -1,253 +1,324 @@
-import { db } from './firebase-config.js';
-import { 
-    collection, getDocs, doc, setDoc, getDoc,
-    updateDoc, onSnapshot, runTransaction
-} from 'https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js';
+// Import Firebase configuration and Firestore services
+import { db } from "./firebase-config.js";
+import {
+    collection, getDocs, doc, setDoc, getDoc, writeBatch,
+    updateDoc, onSnapshot, runTransaction, query, where
+} from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+import { NotificationSystem as notify } from './notification.js';
 
 // ==================================================
-// STATE MANAGEMENT
+// 1. STATE MANAGEMENT AND DOM REFERENCES
 // ==================================================
+
 const state = {
-    currentProduct: null,       // Currently selected product object
-    selectedVariantIndex: null, // Index of selected product variant
-    allProducts: [],            // Cache of all products for search
-    isAdding: true,             // Operation mode (add/subtract)
-    undoStack: [],              // Stores actions for undo
-    redoStack: []               // Stores actions for redo
+    currentProduct: null,
+    isAdding: true,
+    allProducts: [],
+    undoStack: [],
+    redoStack: [],
+    selectedAttributes: {},
+    activeVariant: null
 };
 
-// ==================================================
-// DOM REFERENCES
-// ==================================================
 const dom = {
     productInput: document.getElementById("product-name-input"),
-    autocomplete: document.getElementById("autocomplete-suggestions"),
-    productDetails: document.getElementById("product-details"),
-    variantOptions: document.getElementById("variant-options"),
-    currentReturned: document.getElementById("current-returned"),
     returnedQty: document.getElementById("returned-qty"),
+    currentReturned: document.getElementById("current-returned"),
+    totalReturns: document.getElementById("total-returns"),
+    productDetails: document.getElementById("product-details"),
+    returnsTable: document.getElementById("returns-table").querySelector("tbody"),
+    returnsTableContainer: document.getElementById("returns-table-container"),
+    variantSelector: document.getElementById("variant-selector"),
+    autocomplete: document.getElementById("autocomplete-suggestions"),
+    confirmationModal: document.getElementById("confirmation-modal"),
     saveSpinner: document.getElementById("save-spinner"),
     loadingSpinner: document.getElementById("loading-spinner"),
-    returnsTable: document.getElementById("returns-table").querySelector("tbody"),
-    totalReturns: document.getElementById("total-returns"),
-    returnsTableContainer: document.getElementById("returns-table-container"),
-    confirmationModal: document.getElementById("confirmation-modal"),
     modalMessage: document.getElementById("modal-message")
 };
 
 // ==================================================
-// HELPER FUNCTIONS
+// 2. CORE APPLICATION FUNCTIONS
 // ==================================================
 
-function validateInput(value, fieldName) {
-    if (isNaN(value) || value < 0) {
-        alert(`Please enter a valid number for ${fieldName}.`);
-        return false;
-    }
-    return true;
+function initializeApp() {
+    fetchAllProducts();
+    setupReturnsTableListener();
+    setupEventListeners();
+    notify.init();
 }
 
-function resetProductDetailsUI() {
-    dom.currentReturned.textContent = "";
-    dom.returnedQty.value = "";
-    dom.variantOptions.innerHTML = "";
-}
-
-function resetProductDetails() {
-    dom.productInput.value = "";
-    dom.autocomplete.style.display = "none";
-    dom.productDetails.style.display = "none";
-    dom.variantOptions.innerHTML = "";
-    state.currentProduct = null;
-    state.selectedVariantIndex = null;
-}
+window.addEventListener("load", initializeApp);
 
 // ==================================================
-// FIRESTORE OPERATIONS
+// 3. PRODUCT MANAGEMENT
 // ==================================================
 
 async function fetchAllProducts() {
-    const productsSnapshot = await getDocs(collection(db, "products"));
-    state.allProducts = productsSnapshot.docs.map(doc => doc.data());
+    const snapshot = await getDocs(collection(db, "returns"));
+    state.allProducts = snapshot.docs.map(doc => ({
+        productId: doc.id,
+        name: doc.data().productName,
+        variants: doc.data().variants
+            ?.filter(v => v.isActive !== false)
+            ?.map(v => ({
+                ...v,
+                returnedQuantity: Number(v.returnedQuantity) || 0
+            })) || [],
+        variantDimensions: doc.data().variantDimensions
+    }));
 }
-
-async function fetchProduct(productId) {
-    const productRef = doc(db, "products", productId);
-    const productSnap = await getDoc(productRef);
-    if (!productSnap.exists()) return null;
-
-    const productData = productSnap.data();
-    if (!productData.variants?.length) {
-        productData.variants = [{ variantId: "default", name: "Default" }];
-    }
-    return productData;
-}
-
-async function generateReturnsCollection() {
-    const productsSnapshot = await getDocs(collection(db, "products"));
-    
-    for (const productDoc of productsSnapshot.docs) {
-        const productData = productDoc.data();
-        if (!productData.productId) continue;
-
-        const returnsRef = doc(db, "returns", productData.productId);
-        const returnsSnap = await getDoc(returnsRef);
-        
-        if (!returnsSnap.exists()) {
-            const variants = productData.variants?.length ? 
-                productData.variants.map(v => ({
-                    variantId: v.variantId,
-                    name: v.name,
-                    returnedQuantity: 0
-                })) : 
-                [{ variantId: "default", name: "Default", returnedQuantity: 0 }];
-
-            await setDoc(returnsRef, {
-                productId: productData.productId,
-                variants
-            }, { merge: true });
-        }
-    }
-    alert("Returns collection created/updated!");
-    resetProductDetails();
-}
-
-// ==================================================
-// UI HANDLERS
-// ==================================================
 
 async function scanBarcode(productId) {
-    const product = await fetchProduct(productId);
-    if (!product) return;
-
-    dom.productInput.value = "";
-    resetProductDetailsUI();
+    resetProductDetails();
+    const product = state.allProducts.find(p => p.productId === productId);
+    if (!product?.variants?.length) return;
+    
+    notify.show({
+        message: `Loaded: ${product.name}`,
+        type: "success",
+        timeout: 2000
+    });
+    
     state.currentProduct = product;
     document.getElementById("product-name").textContent = product.name;
 
-    if (product.variants.length === 1 && product.variants[0].variantId === "default") {
-        dom.variantOptions.style.display = "none";
-        state.selectedVariantIndex = 0;
-        await loadReturnData(0);
+    if (product.variants.length === 1) {
+        autoSelectVariant(product.variants[0]);
     } else {
-        dom.variantOptions.style.display = "block";
-        dom.variantOptions.innerHTML = product.variants
-            .map((v, index) => `
-                <label>
-                    <input type="radio" name="variant" value="${index}" data-index="${index}">
-                    ${v.name}
-                </label>
-            `).join("");
-
-        document.querySelectorAll("input[name='variant']").forEach(input => {
-            input.addEventListener("click", () => {
-                state.selectedVariantIndex = input.dataset.index;
-                loadReturnData(state.selectedVariantIndex);
-            });
-        });
+        renderVariantChips();
     }
+    
     dom.productDetails.style.display = "block";
 }
 
-async function loadReturnData(variantIndex) {
-    if (!state.currentProduct) return;
-
-    const returnsRef = doc(db, "returns", state.currentProduct.productId);
-    const returnsSnap = await getDoc(returnsRef);
-
-    if (returnsSnap.exists()) {
-        const returnsData = returnsSnap.data();
-        const variant = returnsData.variants[variantIndex];
-        
-        if (variant) {
-            dom.currentReturned.textContent = variant.returnedQuantity;
-            state.selectedVariantIndex = variantIndex;
-            dom.returnedQty.focus();
-        } else {
-            alert("Selected variant not found!");
-        }
-    } else {
-        alert("Returns data not found!");
-    }
+function autoSelectVariant(variant) {
+    state.selectedAttributes = {...variant.attributes};
+    state.activeVariant = variant;
+    updateQuantityDisplay();
+    renderVariantChips();
 }
 
-async function saveReturn() {
-    // Validate selection and inputs
-    if (!state.currentProduct || state.selectedVariantIndex === null) {
-        alert("Please select a product and variant first!");
-        return;
+// ==================================================
+// 4. VARIANT SELECTION SYSTEM
+// ==================================================
+
+function renderVariantChips() {
+    const container = dom.variantSelector;
+    if (!state.currentProduct?.variantDimensions) return;
+
+    container.innerHTML = state.currentProduct.variantDimensions.map(dim => {
+        const allValues = getUniqueValues(dim);
+        const currentSelection = state.selectedAttributes[dim];
+
+        return `
+            <div class="dimension-group">
+                <h3>${dim.toUpperCase()}</h3>
+                <div class="chips">
+                    ${allValues.map(val => {
+                        const isSelected = currentSelection === val;
+                        const shouldDisable = !isSelected && !hasVariantWithSelection(dim, val);
+
+                        return `
+                            <button class="chip ${isSelected ? 'selected' : ''}
+                                    ${shouldDisable ? 'disabled' : ''}"
+                                    data-dim="${dim}" 
+                                    data-val="${val}"
+                                    ${shouldDisable ? 'tabindex="-1"' : ''}>
+                                ${val}
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.querySelectorAll('.chip:not(.disabled)').forEach(chip => {
+        chip.addEventListener('click', handleChipClick);
+    });
+}
+
+function handleChipClick(e) {
+    const chip = e.currentTarget;
+    const dim = chip.dataset.dim;
+    const val = chip.dataset.val;
+
+    if (state.selectedAttributes[dim] === val) {
+        delete state.selectedAttributes[dim];
+        if (Object.keys(state.selectedAttributes).length === 0) {
+            resetVariantDisplay();
+        }
+    } else {
+        state.selectedAttributes[dim] = val;
     }
 
-    const returnedQuantity = parseInt(dom.returnedQty.value) || 0;
-    if (!validateInput(returnedQuantity, "Returned Quantity")) return;
+    state.activeVariant = findVariant();
+    updateVariantDisplay();
+    renderVariantChips();
+}
 
-    // Show saving indicator
-    dom.saveSpinner.style.display = "block";
+function findVariant() {
+    const selectedDims = Object.keys(state.selectedAttributes);
+    const allDims = state.currentProduct.variantDimensions || [];
+    
+    if (selectedDims.length === 0 || selectedDims.length !== allDims.length) {
+        return null;
+    }
+    
+    return state.currentProduct.variants.find(v => 
+        allDims.every(dim => 
+            v.attributes[dim] === state.selectedAttributes[dim]
+        )
+    );
+}
+
+function hasVariantWithSelection(dimension, value) {
+    const testAttributes = {
+        ...state.selectedAttributes,
+        [dimension]: value
+    };
+    
+    return state.currentProduct.variants.some(v => 
+        Object.keys(testAttributes).every(d => 
+            v.attributes[d] === testAttributes[d]
+        )
+    );
+}
+
+function getUniqueValues(dimension) {
+    if (!state.currentProduct?.variants) return [];
+    return [...new Set(
+        state.currentProduct.variants.map(v => v.attributes[dimension])
+    )].filter(Boolean);
+}
+
+// ==================================================
+// 5. RETURNS OPERATIONS
+// ==================================================
+
+async function saveReturn() {
+    if (!state.activeVariant || !validateReturnInput()) {
+        notify.show({
+            message: "Invalid return data! Check your inputs",
+            type: "error"
+        });
+        return;
+    }
+    
+    const returnedQuantity = parseInt(dom.returnedQty.value) || 0;
     const returnsRef = doc(db, "returns", state.currentProduct.productId);
+
+    notify.show({
+        message: `Processing return for ${state.currentProduct.name}...`,
+        type: "info",
+        timeout: 2000
+    });
 
     try {
         await runTransaction(db, async (transaction) => {
             const docSnap = await transaction.get(returnsRef);
-            if (!docSnap.exists()) throw new Error("Returns document not found!");
-
-            const returnsData = docSnap.data();
-            const variant = returnsData.variants[state.selectedVariantIndex];
-
-            // Store old values for undo
+            const variants = [...docSnap.data().variants];
+            
+            const variantIndex = variants.findIndex(
+                v => v.variantId === state.activeVariant.variantId
+            );
+            
+            if (variantIndex === -1) throw new Error("Variant not found");
+            
+            const variant = variants[variantIndex];
             const oldValues = {
                 returned: variant.returnedQuantity
             };
-
-            // Calculate new value based on operation mode
-            let newQuantity;
+            
             if (state.isAdding) {
-                newQuantity = variant.returnedQuantity + returnedQuantity;
+                variant.returnedQuantity += returnedQuantity;
             } else {
-                newQuantity = variant.returnedQuantity - returnedQuantity;
-                if (newQuantity < 0) {
-                    throw new Error("Cannot have negative returned quantity!");
-                }
+                variant.returnedQuantity = Math.max(0, variant.returnedQuantity - returnedQuantity);
             }
-
-            // Update variant
-            variant.returnedQuantity = newQuantity;
-
-            // Commit transaction
-            transaction.update(returnsRef, { variants: returnsData.variants });
-
-            // Record action for undo
+            
+            updateLocalProductState(variant);
+            
             state.undoStack.push({
                 productId: state.currentProduct.productId,
-                variantIndex: state.selectedVariantIndex,
-                oldValues: oldValues,
+                variantId: state.activeVariant.variantId,
+                oldValues,
                 newValues: {
-                    returned: newQuantity
+                    returned: variant.returnedQuantity
                 }
             });
-
-            // Clear redo stack
+            
+            transaction.update(returnsRef, { variants });
             state.redoStack = [];
+            updateUndoRedoButtons();
         });
-
-        // Success feedback
-        alert(`Return ${state.isAdding ? 'added' : 'subtracted'} successfully!`);
-        updateUndoRedoButtons();
+        
+        notify.show({
+            message: `Return ${state.isAdding ? 'added' : 'subtracted'} successfully!`,
+            type: "success"
+        });
+        
+        refreshCurrentVariantData();
+        resetInputFields();
         
     } catch (error) {
         console.error("Save failed:", error);
-        alert(`Error: ${error.message}`);
-    } finally {
-        // Cleanup
-        dom.saveSpinner.style.display = "none";
-        await loadReturnData(state.selectedVariantIndex);
-        dom.returnedQty.value = "";
+        notify.show({
+            message: `Save failed: ${error.message}`,
+            type: "error",
+            timeout: 4000
+        });
     }
 }
 
-function updateUndoRedoButtons() {
-    document.getElementById('undo-button').disabled = state.undoStack.length === 0;
-    document.getElementById('redo-button').disabled = state.redoStack.length === 0;
+function updateLocalProductState(variant) {
+    const productIndex = state.allProducts.findIndex(
+        p => p.productId === state.currentProduct.productId
+    );
+    if (productIndex !== -1) {
+        const variantIndex = state.allProducts[productIndex].variants.findIndex(
+            v => v.variantId === state.activeVariant.variantId
+        );
+        if (variantIndex !== -1) {
+            state.allProducts[productIndex].variants[variantIndex] = {
+                ...state.allProducts[productIndex].variants[variantIndex],
+                returnedQuantity: variant.returnedQuantity
+            };
+        }
+    }
 }
+
+async function refreshCurrentVariantData() {
+    if (!state.currentProduct?.productId) return;
+
+    const returnsRef = doc(db, "returns", state.currentProduct.productId);
+    const docSnap = await getDoc(returnsRef);
+
+    if (docSnap.exists()) {
+        const productIndex = state.allProducts.findIndex(
+            p => p.productId === state.currentProduct.productId
+        );
+        if (productIndex !== -1) {
+            state.allProducts[productIndex] = {
+                ...state.allProducts[productIndex],
+                variants: docSnap.data().variants
+            };
+        }
+
+        if (state.activeVariant) {
+            const updatedVariant = docSnap.data().variants.find(
+                v => v.variantId === state.activeVariant.variantId
+            );
+            if (updatedVariant) {
+                state.activeVariant = updatedVariant;
+                updateQuantityDisplay();
+            }
+        }
+    }
+}
+
+// ==================================================
+// 6. UNDO/REDO SYSTEM
+// ==================================================
 
 async function undoLastAction() {
     if (state.undoStack.length === 0) return;
@@ -255,90 +326,314 @@ async function undoLastAction() {
     const action = state.undoStack.pop();
     const returnsRef = doc(db, "returns", action.productId);
 
-    await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(returnsRef);
-        const variants = [...docSnap.data().variants];
-        variants[action.variantIndex] = {
-            ...variants[action.variantIndex],
-            returnedQuantity: action.oldValues.returned
-        };
-        transaction.update(returnsRef, { variants });
-    });
+    try {
+        const product = state.allProducts.find(p => p.productId === action.productId);
+        const variant = product?.variants.find(v => v.variantId === action.variantId);
+        
+        notify.show({
+            message: `
+                <div class="undo-redo-notification">
+                    <strong>UNDO APPLIED</strong>
+                    <div class="variant">${product?.name || 'Product'} - ${variant?.variantName || 'Variant'}</div>
+                    <div class="change">
+                        <span class="label">Returned:</span>
+                        <span class="from">${action.newValues.returned}</span>
+                        <span class="arrow">→</span>
+                        <span class="to">${action.oldValues.returned}</span>
+                    </div>
+                </div>
+            `,
+            type: "warning",
+            timeout: 5000
+        });
 
-    state.redoStack.push(action);
-    updateUndoRedoButtons();
+        await runTransaction(db, async (transaction) => {
+            const docSnap = await transaction.get(returnsRef);
+            const variants = [...docSnap.data().variants];
+            
+            const variantIndex = variants.findIndex(
+                v => v.variantId === action.variantId
+            );
+            
+            variants[variantIndex] = {
+                ...variants[variantIndex],
+                returnedQuantity: action.oldValues.returned
+            };
+            
+            transaction.update(returnsRef, { variants });
+        });
+
+        state.redoStack.push(action);
+        updateUndoRedoButtons();
+        await refreshCurrentVariantData();
+
+    } catch (error) {
+        console.error("Undo failed:", error);
+        notify.show({
+            message: `Undo failed: ${error.message}`,
+            type: "error",
+            timeout: 4000
+        });
+    }
 }
 
 async function redoLastAction() {
     if (state.redoStack.length === 0) return;
 
-    // Get the last undone action (don't pop yet)
-    const action = state.redoStack[state.redoStack.length - 1];
+    const action = state.redoStack.pop();
     const returnsRef = doc(db, "returns", action.productId);
 
     try {
+        const product = state.allProducts.find(p => p.productId === action.productId);
+        const variant = product?.variants.find(v => v.variantId === action.variantId);
+        
+        notify.show({
+            message: `
+                <div class="undo-redo-notification">
+                    <strong>REDO APPLIED</strong>
+                    <div class="variant">${product?.name || 'Product'} - ${variant?.variantName || 'Variant'}</div>
+                    <div class="change">
+                        <span class="label">Returned:</span>
+                        <span class="from">${action.oldValues.returned}</span>
+                        <span class="arrow">→</span>
+                        <span class="to">${action.newValues.returned}</span>
+                    </div>
+                </div>
+            `,
+            type: "info",
+            timeout: 5000
+        });
+
         await runTransaction(db, async (transaction) => {
             const docSnap = await transaction.get(returnsRef);
             const variants = [...docSnap.data().variants];
             
-            // Apply the redo values
-            variants[action.variantIndex] = {
-                ...variants[action.variantIndex],
+            const variantIndex = variants.findIndex(
+                v => v.variantId === action.variantId
+            );
+            
+            variants[variantIndex] = {
+                ...variants[variantIndex],
                 returnedQuantity: action.newValues.returned
             };
             
             transaction.update(returnsRef, { variants });
         });
 
-        // Move action from redo stack back to undo stack
-        state.redoStack.pop();
         state.undoStack.push(action);
-        
         updateUndoRedoButtons();
+        await refreshCurrentVariantData();
+
     } catch (error) {
         console.error("Redo failed:", error);
-        alert("Error during redo: " + error.message);
+        notify.show({
+            message: `Redo failed: ${error.message}`,
+            type: "error",
+            timeout: 4000
+        });
     }
 }
 
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undo-button');
+    const redoBtn = document.getElementById('redo-button');
+    
+    undoBtn.disabled = state.undoStack.length === 0;
+    redoBtn.disabled = state.redoStack.length === 0;
+    
+    undoBtn.style.opacity = undoBtn.disabled ? "0.5" : "1";
+    redoBtn.style.opacity = redoBtn.disabled ? "0.5" : "1";
+}
+
 // ==================================================
-// TABLE HANDLERS
+// 7. UI UPDATES AND UTILITIES
+// ==================================================
+
+function updateQuantityDisplay() {
+    if (!state.activeVariant) {
+        dom.currentReturned.textContent = "0";
+        return;
+    }
+    
+    dom.currentReturned.textContent = state.activeVariant.returnedQuantity ?? 0;
+}
+
+function updateVariantDisplay() {
+    if (state.activeVariant) {
+        updateQuantityDisplay();
+    } else {
+        dom.currentReturned.textContent = "0";
+    }
+}
+
+function resetVariantDisplay() {
+    dom.currentReturned.textContent = "0";
+    state.activeVariant = null;
+}
+
+function resetInputFields() {
+    dom.returnedQty.value = "";
+}
+
+function resetProductDetails() {
+    resetInputFields();
+    resetVariantDisplay();
+    state.currentProduct = null;
+    state.selectedAttributes = {};
+    
+    dom.productInput.value = "";
+    dom.autocomplete.style.display = "none";
+    dom.productDetails.style.display = "none";
+    dom.variantSelector.innerHTML = "";
+}
+
+function validateReturnInput() {
+    const returnedQuantity = parseInt(dom.returnedQty.value) || 0;
+    
+    if (isNaN(returnedQuantity) || returnedQuantity < 0) {
+        alert("Returned quantity must be ≥ 0");
+        return false;
+    }
+    
+    return true;
+}
+
+// ==================================================
+// 8. ADMIN AND DATA MANAGEMENT
+// ==================================================
+
+async function generateReturnsCollection() {
+    notify.show({
+        message: "Generating returns collection...",
+        type: "info",
+        timeout: 3000
+    });
+
+    const [productsSnapshot, existingReturnsSnapshot] = await Promise.all([
+        getDocs(collection(db, "products")),
+        getDocs(collection(db, "returns"))
+    ]);
+
+    const batch = writeBatch(db);
+    const newProductIds = new Set();
+
+    // Process all products (not filtered by trackPackaging)
+    productsSnapshot.forEach(productDoc => {
+        const productData = productDoc.data();
+        const returnsRef = doc(db, "returns", productData.productId);
+        newProductIds.add(productData.productId);
+
+        // Find existing returns data if it exists
+        const existingReturnsDoc = existingReturnsSnapshot.docs.find(d => d.id === productData.productId);
+        const existingVariants = existingReturnsDoc?.data()?.variants || [];
+        const countMap = new Map(existingVariants.map(v => [v.variantId, v.returnedQuantity]));
+
+        // Create variants array preserving existing quantities
+        const activeVariants = productData.variants
+            ?.filter(v => v.isActive !== false)
+            ?.map(v => ({
+                variantId: v.variantId,
+                variantName: v.variantName || `${v.attributes?.color} - ${v.attributes?.size}`,
+                attributes: v.attributes || {},
+                returnedQuantity: countMap.get(v.variantId) || 0 // Preserve existing or default to 0
+            })) || [];
+
+        if (activeVariants.length > 0) {
+            batch.set(returnsRef, {
+                productId: productData.productId,
+                productName: productData.productName,
+                variantDimensions: productData.variantDimensions || [],
+                variants: activeVariants
+            }, { merge: true });
+        } else {
+            batch.delete(returnsRef);
+        }
+    });
+
+    // Remove returns for discontinued products
+    existingReturnsSnapshot.docs.forEach(doc => {
+        if (!newProductIds.has(doc.id)) {
+            batch.delete(doc.ref);
+        }
+    });
+
+    try {
+        await batch.commit();
+        fetchAllProducts();
+        notify.show({
+            message: "Returns collection updated successfully!",
+            type: "success"
+        });
+    } catch (error) {
+        notify.show({
+            message: `Generation failed: ${error.message}`,
+            type: "error",
+            timeout: 5000
+        });
+    }
+}
+
+async function resetReturnsData() {
+    const snapshot = await getDocs(collection(db, "returns"));
+    const batch = writeBatch(db);
+    let updatedCount = 0;
+
+    snapshot.docs.forEach(doc => {
+        const variants = Array.isArray(doc.data().variants) ? doc.data().variants : [];
+        const updatedVariants = variants.map(v => ({
+            ...v,
+            returnedQuantity: 0
+        }));
+
+        batch.update(doc.ref, { variants: updatedVariants });
+        updatedCount++;
+    });
+
+    await batch.commit();
+    notify.show({
+        message: `Reset ${updatedCount} products in returns collection`,
+        type: "success"
+    });
+}
+
+// ==================================================
+// 9. TABLE MANAGEMENT
 // ==================================================
 
 function setupReturnsTableListener() {
-    onSnapshot(collection(db, "returns"), async (snapshot) => {
-        dom.loadingSpinner.style.display = "block";
-        dom.returnsTable.innerHTML = "";
+    onSnapshot(collection(db, "returns"), (snapshot) => {
+        dom.returnsTable.innerHTML = '';
         let totalReturns = 0;
 
-        for (const doc of snapshot.docs) {
-            const returnsData = doc.data();
-            const product = await fetchProduct(doc.id);
+        snapshot.forEach(doc => {
+            const { productName, variants } = doc.data();
 
-            returnsData.variants.forEach(variant => {
-                const variantName = product?.variants.find(v => v.variantId === variant.variantId)?.name || "Unknown";
+            variants.forEach(variant => {
+                const variantDisplay = variant.variantName || 
+                    Object.entries(variant.attributes || {})
+                        .map(([dim, val]) => `${dim}:${val}`)
+                        .join(', ') || "—";
+
                 totalReturns += variant.returnedQuantity;
 
-                // REMOVE THE CONDITION - ALWAYS SHOW ROW
                 dom.returnsTable.innerHTML += `
                     <tr>
-                        <td title="ID: ${returnsData.productId}">${product?.name || doc.id}</td>
-                        <td title="ID: ${variant.variantId}">${variantName}</td>
+                        <td title="Product ID: ${doc.id}">${productName}</td>
+                        <td title="Variant ID: ${variant.variantId || '—'}">${variantDisplay}</td>
                         <td>${variant.returnedQuantity.toLocaleString()}</td>
                     </tr>
                 `;
             });
-        }
+        });
 
         dom.returnsTable.innerHTML += `
-            <tr style="background: #007bff; color: #fff;">
-                <td colspan="2" style="text-align: center; font-weight: bold;">Total =</td>
+            <tr style="background: #007bff; color: #fff; font-weight: bold;">
+                <td colspan="2" style="text-align: center;">Total =</td>
                 <td>${totalReturns.toLocaleString()}</td>
             </tr>
         `;
 
         dom.totalReturns.textContent = totalReturns.toLocaleString();
-        dom.loadingSpinner.style.display = "none";
     });
 }
 
@@ -348,17 +643,10 @@ function toggleReturnsTable() {
 }
 
 // ==================================================
-// EVENT LISTENERS & INITIALIZATION
+// 10. EVENT HANDLERS
 // ==================================================
 
 function setupEventListeners() {
-
-    // Add to your setupEventListeners() function
-    document.getElementById("toggle-operation").addEventListener("click", function() {
-        state.isAdding = !state.isAdding;
-        this.textContent = state.isAdding ? "+ Add" : "- Subtract";
-        this.classList.toggle("subtract", !state.isAdding);
-    });
     // Admin controls
     document.getElementById("generate-returns").addEventListener("click", generateReturnsCollection);
     document.getElementById("toggle-returns-table").addEventListener("click", toggleReturnsTable);
@@ -367,9 +655,16 @@ function setupEventListeners() {
     
     // Product interaction
     document.getElementById("cancel-return").addEventListener("click", resetProductDetails);
-    document.getElementById("scan-barcode").addEventListener("click", () => {
+    document.getElementById("find-product").addEventListener("click", () => {
         const product = state.allProducts.find(p => p.name === dom.productInput.value);
         product ? scanBarcode(product.productId) : alert("Product not found!");
+    });
+
+    // Operation mode toggle
+    document.getElementById("toggle-operation").addEventListener("click", function() {
+        state.isAdding = !state.isAdding;
+        this.textContent = state.isAdding ? "+ Add" : "- Subtract";
+        this.style.backgroundColor = state.isAdding ? "#3498db" : "#e74c3c";
     });
 
     // Modal controls
@@ -381,35 +676,38 @@ function setupEventListeners() {
     document.getElementById('redo-button').addEventListener('click', redoLastAction);
 
     // Autocomplete
-    dom.productInput.addEventListener("input", function(e) {
-        const input = e.target.value.toLowerCase();
-        dom.autocomplete.innerHTML = "";
-        
-        if (!input) {
-            dom.autocomplete.style.display = "none";
-            return;
-        }
+    dom.productInput.addEventListener("input", handleProductSearch);
+    dom.autocomplete.addEventListener("click", handleAutocompleteSelection);
+}
 
-        const filtered = state.allProducts.filter(p => p.name.toLowerCase().includes(input));
-        if (filtered.length) {
-            dom.autocomplete.style.display = "block";
-            filtered.forEach(p => {
-                const div = document.createElement("div");
-                div.textContent = p.name;
-                div.dataset.productId = p.productId;
-                dom.autocomplete.appendChild(div);
-            });
-        }
-    });
+function handleProductSearch(e) {
+    const input = e.target.value.toLowerCase();
+    dom.autocomplete.innerHTML = "";
+    
+    if (!input) {
+        dom.autocomplete.style.display = "none";
+        return;
+    }
 
-    dom.autocomplete.addEventListener("click", e => {
-        if (e.target.tagName === "DIV") {
-            const productId = e.target.dataset.productId;
-            dom.productInput.value = e.target.textContent;
-            dom.autocomplete.style.display = "none";
-            scanBarcode(productId);
-        }
-    });
+    const filtered = state.allProducts.filter(p => p.name.toLowerCase().includes(input));
+    if (filtered.length) {
+        dom.autocomplete.style.display = "block";
+        filtered.forEach(p => {
+            const div = document.createElement("div");
+            div.textContent = p.name;
+            div.dataset.productId = p.productId;
+            dom.autocomplete.appendChild(div);
+        });
+    }
+}
+
+function handleAutocompleteSelection(e) {
+    if (e.target.tagName === "DIV") {
+        const productId = e.target.dataset.productId;
+        dom.productInput.value = e.target.textContent;
+        dom.autocomplete.style.display = "none";
+        scanBarcode(productId);
+    }
 }
 
 function showConfirmationModal(action) {
@@ -422,28 +720,3 @@ function showConfirmationModal(action) {
     }
     dom.confirmationModal.style.display = "block";
 }
-
-async function resetReturnsData() {
-    const returnsSnapshot = await getDocs(collection(db, "returns"));
-    
-    for (const returnsDoc of returnsSnapshot.docs) {
-        const returnsRef = doc(db, "returns", returnsDoc.id);
-        const returnsData = returnsDoc.data();
-        
-        returnsData.variants.forEach(variant => {
-            variant.returnedQuantity = 0;
-        });
-        
-        await updateDoc(returnsRef, { variants: returnsData.variants });
-    }
-    
-    alert("All returns data reset!");
-    resetProductDetails();
-}
-
-// Initialize application
-window.addEventListener("load", () => {
-    fetchAllProducts();
-    setupReturnsTableListener();
-    setupEventListeners();
-});

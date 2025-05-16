@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
     
-    <title>Returns Processing hi</title>
+    <title>Returns Processing</title>
 </head>
 <body>
     <!-- Navigation -->
@@ -33,11 +33,11 @@
         <p>Total Returns Today: <span id="total-returns">0</span> units</p>
     </header>
 
-    <!-- Barcode Section -->
+    <!-- Product Search Section -->
     <div class="barcode-section">
         <input type="text" id="product-name-input" placeholder="Type product name" autofocus>
         <div id="autocomplete-suggestions" class="autocomplete-dropdown"></div>
-        <button id="scan-barcode">Scan</button>
+        <button id="find-product">Find</button>
     </div>
 
     <!-- Product Details Section -->
@@ -45,8 +45,8 @@
         <h2>Return Details</h2>
         <p id="product-name"></p>
 
-        <!-- Variant Selection -->
-        <div id="variant-options"></div>
+        <!-- Variant Selection Chips -->
+        <div id="variant-selector"></div>
 
         <!-- Display Current Values -->
         <p>Current Returned Quantity: <span id="current-returned">0</span></p>
@@ -55,9 +55,11 @@
         <div>
             <label for="returned-qty">Returned Quantity:</label>
             <input type="number" id="returned-qty" placeholder="Enter quantity" min="0">
-            <!-- Add this toggle button -->
-            <button id="toggle-operation">+ Add</button>
         </div>
+
+        <!-- Toggle Button -->
+        <button id="toggle-operation">+ Add</button>
+        <br>
 
         <!-- Save and Cancel Buttons -->
         <button id="save-return">Save Return</button>
@@ -70,10 +72,10 @@
         </div>
     </div>
 
-    <!-- In the admin-actions div, add this button -->
+    <!-- Admin Actions -->
     <div class="admin-actions">
         <button id="generate-returns">Initialize Returns Collection</button>
-        <button id="reset-returns">Reset Returns Data</button> <!-- Add this line -->
+        <button id="reset-returns">Reset Returns Data</button>
         <button id="toggle-returns-table">Show Returns Table</button>
     </div>
 

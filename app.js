@@ -1,135 +1,82 @@
 // Import Firebase configuration and Firestore services
 import { db } from "./firebase-config.js";
 import {
+
     collection, getDocs, doc, setDoc, getDoc, writeBatch,
     updateDoc, onSnapshot, runTransaction, query, where,
+
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+import { NotificationSystem as notify } from './notification.js';
 
 // ==================================================
-// STATE MANAGEMENT
+// 1. STATE MANAGEMENT AND DOM REFERENCES
 // ==================================================
+
+/**
+ * Main application state container
+ * Tracks current product, variants, undo/redo stacks, and UI state
+ */
 const state = {
   currentProduct: null,
   isAdding: true,
   allProducts: [],
   undoStack: [],
   redoStack: [],
-  selectedAttributes: {},  // Simple {color: "red", size: "large"} 
-  activeVariant: null,  // This will be set when a variant is selected
+  selectedAttributes: {},  
+  activeVariant: null  
 };
 
-
-
-// ==================================================
-// DOM REFERENCES
-// ==================================================
+/**
+ * DOM element references grouped for easy access
+ */
 const dom = {
-    productInput: document.getElementById("product-name-input"),         // Product search input
-    autocomplete: document.getElementById("autocomplete-suggestions"),  // Autocomplete dropdown
-    productDetails: document.getElementById("product-details"),          // Product details container
-    currentPackaged: document.getElementById("current-packaged"),        // Current packaged quantity display
-    currentUsed: document.getElementById("current-used"),                // Current used stock display
-    packagedQuantity: document.getElementById("packaged-quantity"),      // Packaged quantity input
-    usedStock: document.getElementById("used-stock"),                    // Used stock input
-    saveSpinner: document.getElementById("save-spinner"),                // Saving progress indicator
-    loadingSpinner: document.getElementById("loading-spinner"),          // Loading progress indicator
-    packagingTable: document.getElementById("packaging-table").querySelector("tbody"), // Data table body
-    totalPackaged: document.getElementById("total-packaged"),            // Total packaged display
-    packagingTableContainer: document.getElementById("packaging-table-container"), // Table container
-    confirmationModal: document.getElementById("confirmation-modal"),    // Confirmation dialog
-    modalMessage: document.getElementById("modal-message")               // Modal message text
+  // Input fields
+  productInput: document.getElementById("product-name-input"),
+  packagedQuantity: document.getElementById("packaged-quantity"),
+  usedStock: document.getElementById("used-stock"),
+  
+  // Display elements
+  currentPackaged: document.getElementById("current-packaged"),
+  currentUsed: document.getElementById("current-used"),
+  totalPackaged: document.getElementById("total-packaged"),
+  
+  // Containers
+  productDetails: document.getElementById("product-details"),
+  packagingTable: document.getElementById("packaging-table").querySelector("tbody"),
+  packagingTableContainer: document.getElementById("packaging-table-container"),
+  variantSelector: document.getElementById("variant-selector"),
+  autocomplete: document.getElementById("autocomplete-suggestions"),
+  
+  // Modals and loaders
+  confirmationModal: document.getElementById("confirmation-modal"),
+  saveSpinner: document.getElementById("save-spinner"),
+  loadingSpinner: document.getElementById("loading-spinner"),
+  modalMessage: document.getElementById("modal-message")
 };
 
 // ==================================================
-// HELPER FUNCTIONS
+// 2. CORE APPLICATION FUNCTIONS
 // ==================================================
 
-// Validate numeric input values
-function validateInput(value, fieldName) {
-    if (isNaN(value) || value < 0) {
-        alert(`Please enter a valid number for ${fieldName}.`);
-        return false;
-    }
-    return true;
+/**
+ * Initialize application on load
+ */
+function initializeApp() {
+  fetchAllProducts();
+  setupPackagingTableListener();
+  setupEventListeners();
+  notify.init();
 }
 
-function getInputValues() {
-  return {
-    packagedQuantity: parseInt(dom.packagedQuantity.value) || 0,
-    usedStock: parseInt(dom.usedStock.value) || 0
-  };
-}
-
-function validatePackagingInput() {
-  const values = getInputValues();
-  
-  if (isNaN(values.packagedQuantity) || values.packagedQuantity < 0) {
-    alert("Packaged quantity must be ≥ 0");
-    return false;
-  }
-  
-  if (isNaN(values.usedStock) || values.usedStock < 0) {
-    alert("Used stock must be ≥ 0");
-    return false;
-  }
-  
-  return true;
-}
-
-// Full reset of product details and search
-function resetProductDetails() {
-  // Clear inputs
-  dom.packagedQuantity.value = "";
-  dom.usedStock.value = "";
-  
-  // Reset ALL displays to 0 (crucial fix)
-  dom.currentPackaged.textContent = "0";
-  dom.currentUsed.textContent = "0";
-  
-  // Clear state
-  state.currentProduct = null;
-  state.selectedAttributes = {};
-  state.activeVariant = null;
-  
-  // UI Cleanup
-  dom.productInput.value = "";
-  dom.autocomplete.style.display = "none";
-  dom.productDetails.style.display = "none";
-  document.getElementById("variant-selector").innerHTML = "";
-}
-
-// Get unique values for a dimension (e.g. ["Red", "Blue"] for "color")
-function getUniqueValues(dimension) {
-  if (!state.currentProduct?.variants) return [];
-  return [...new Set(
-    state.currentProduct.variants.map(v => v.attributes[dimension])
-  )].filter(Boolean); // Remove undefined/empty
-}
-
-// Simple deep equality check (for variant matching)
-function deepEqual(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function updateQuantityDisplay() {
-  if (!state.activeVariant) return;
-  
-  // FIX 3: Ensure we show current values even if null/undefined
-  dom.currentPackaged.textContent = state.activeVariant.packagedQuantity ?? 0;
-  dom.currentUsed.textContent = state.activeVariant.usedStock ?? 0;
-  
-  // FIX 4: Visual feedback for current mode
-  const toggleBtn = document.getElementById('toggle-operation');
-  toggleBtn.textContent = state.isAdding ? '+ Add' : '- Subtract';
-  toggleBtn.style.backgroundColor = state.isAdding ? '#3498db' : '#e74c3c';
-}
+window.addEventListener("load", initializeApp);
 
 // ==================================================
-// FIRESTORE OPERATIONS
+// 3. PRODUCT MANAGEMENT
 // ==================================================
 
-// Fetch all products from Firestore
-// Add this to fetchAllProducts() to ensure fresh data
+/**
+ * Fetch all products from Firestore and initialize state
+ */
 async function fetchAllProducts() {
   const snapshot = await getDocs(collection(db, "packaging"));
   state.allProducts = snapshot.docs.map(doc => ({
@@ -137,7 +84,6 @@ async function fetchAllProducts() {
     name: doc.data().productName,
     variants: doc.data().variants.map(v => ({
       ...v,
-      // Ensure numeric values
       packagedQuantity: Number(v.packagedQuantity) || 0,
       usedStock: Number(v.usedStock) || 0
     })),
@@ -145,131 +91,19 @@ async function fetchAllProducts() {
   }));
 }
 
-// Get single product with variant handling
-async function fetchProduct(productId) {
-    const productRef = doc(db, "products", productId);
-    const productSnap = await getDoc(productRef);
-    if (!productSnap.exists()) return null;
-
-    const productData = productSnap.data();
-    // Add default variant if none exist
-    if (!productData.variants?.length) {
-        productData.variants = [{ variantId: "default", name: "Default" }];
-    }
-    return productData;
-}
-
-// Initialize packaging collection from products
-async function generatePackagingCollection() {
-  const [productsSnapshot, existingPackagingSnapshot] = await Promise.all([
-    getDocs(query(collection(db, "products"), where("trackPackaging", "==", true))),
-    getDocs(collection(db, "packaging"))
-  ]);
-
-  const batch = writeBatch(db);
-
-  // Keep track of all packaging productIds
-  const activeProductIds = new Set();
-  const newProductIds = new Set();
-
-  // STEP 1: Process all active products
-  for (const productDoc of productsSnapshot.docs) {
-    const productData = productDoc.data();
-    const packagingRef = doc(db, "packaging", productData.productId);
-    const packagingSnap = await getDoc(packagingRef);
-
-    newProductIds.add(productData.productId);
-
-    const existingData = packagingSnap.exists() ? packagingSnap.data() : null;
-    const existingVariants = existingData?.variants || [];
-
-    const countMap = new Map();
-    existingVariants.forEach(v => {
-      countMap.set(v.variantId, {
-        packaged: v.packagedQuantity,
-        used: v.usedStock
-      });
-    });
-
-    const activeVariants = productData.variants
-      ?.filter(v => v.isActive !== false)
-      ?.map(v => ({
-        variantId: v.variantId,
-        variantName: v.variantName,
-        attributes: v.attributes,
-        packagedQuantity: countMap.get(v.variantId)?.packaged || 0,
-        usedStock: countMap.get(v.variantId)?.used || 0
-      })) || [];
-
-    if (activeVariants.length > 0) {
-      batch.set(packagingRef, {
-        productId: productData.productId,
-        productName: productData.productName,
-        variantDimensions: productData.variantDimensions || [],
-        variants: activeVariants
-      }, { merge: true });
-    } else {
-      batch.delete(packagingRef);
-    }
-  }
-
-  // STEP 2: Delete packaging docs for products that are no longer tracking packaging
-  for (const packagingDoc of existingPackagingSnapshot.docs) {
-    const packagingData = packagingDoc.data();
-    const packagingProductId = packagingData.productId;
-
-    if (!newProductIds.has(packagingProductId)) {
-      const packagingRef = doc(db, "packaging", packagingProductId);
-      batch.delete(packagingRef);
-    }
-  }
-
-  await batch.commit();
-  fetchAllProducts(); // Refresh product list
-  alert("Packaging collection updated safely!");
-}
-
-
-// Reset all packaging data to zero
-async function resetPackagingData() {
-  const snapshot = await getDocs(collection(db, "packaging"));
-  const batch = writeBatch(db);
-  let updatedCount = 0;
-
-  snapshot.docs.forEach(doc => {
-    const data = doc.data();
-    const variants = Array.isArray(data.variants) ? data.variants : [];
-
-    const updatedVariants = variants.map(v => ({
-      ...v,
-      packagedQuantity: 0,
-      usedStock: 0
-    }));
-
-    batch.update(doc.ref, { variants: updatedVariants });
-    updatedCount++;
-  });
-
-  await batch.commit();
-  alert(`Packaging data reset for ${updatedCount} products.`);
-}
-
-// ==================================================
-// UI HANDLERS
-// ==================================================
-
-// Handle product selection and display details
-// ==================================================
-// MODIFY scanBarcode()
-// ==================================================
-// Update scanBarcode()
+/**
+ * Handle product selection via search/barcode scan
+ * @param {string} productId - ID of selected product
+ */
 async function scanBarcode(productId) {
-  // Reset everything first (new)
   resetProductDetails();
-  
   const product = state.allProducts.find(p => p.productId === productId);
   if (!product?.variants?.length) return;
-
+  notify.show({
+    message: `Loaded: ${product.name}`,
+    type: "success",
+    timeout: 2000
+  });
   state.currentProduct = product;
   document.getElementById("product-name").textContent = product.name;
 
@@ -282,37 +116,26 @@ async function scanBarcode(productId) {
   dom.productDetails.style.display = "block";
 }
 
-
-// ==================================================
-// VARIANT SELECTION SYSTEM (Complete Implementation)
-// ==================================================
-
+/**
+ * Auto-select variant for single-variant products
+ * @param {object} variant - The variant to select
+ */
 function autoSelectVariant(variant) {
   state.selectedAttributes = {...variant.attributes};
   state.activeVariant = variant;
   updateQuantityDisplay();
-  renderVariantChips(); // Re-render to show selection
+  renderVariantChips();
 }
 
-/**
- * Checks if a variant exists with the given attributes
- * @param {Object} attributes - The attributes to check (e.g. {color: "red"})
- * @returns {boolean} True if at least one variant matches
- */
-function isVariantAvailable(attributes) {
-  return state.currentProduct.variants.some(v => {
-    // Check if variant matches all currently selected attributes
-    return Object.keys(attributes).every(
-      dim => v.attributes[dim] === attributes[dim]
-    );
-  });
-}
+// ==================================================
+// 4. VARIANT SELECTION SYSTEM
+// ==================================================
 
 /**
- * Renders dimension chips with proper enabled/disabled states
+ * Render interactive chips for variant selection
  */
 function renderVariantChips() {
-  const container = document.getElementById('variant-selector');
+  const container = dom.variantSelector;
   if (!state.currentProduct?.variantDimensions) return;
 
   container.innerHTML = state.currentProduct.variantDimensions.map(dim => {
@@ -325,12 +148,7 @@ function renderVariantChips() {
         <div class="chips">
           ${allValues.map(val => {
             const isSelected = currentSelection === val;
-            
-            // Only disable if:
-            // 1. Not currently selected
-            // 2. No variants exist with this value + other selections
-            const shouldDisable = !isSelected && 
-              !hasVariantWithSelection(dim, val);
+            const shouldDisable = !isSelected && !hasVariantWithSelection(dim, val);
 
             return `
               <button class="chip ${isSelected ? 'selected' : ''}
@@ -347,13 +165,59 @@ function renderVariantChips() {
     `;
   }).join('');
 
-  // Add event listeners
+  // Add event listeners to active chips
   container.querySelectorAll('.chip:not(.disabled)').forEach(chip => {
     chip.addEventListener('click', handleChipClick);
   });
 }
 
-// Helper to check for variant existence
+/**
+ * Handle chip selection/deselection
+ * @param {Event} e - Click event
+ */
+function handleChipClick(e) {
+  const chip = e.currentTarget;
+  const dim = chip.dataset.dim;
+  const val = chip.dataset.val;
+
+  // Toggle selection
+  if (state.selectedAttributes[dim] === val) {
+    delete state.selectedAttributes[dim];
+    if (Object.keys(state.selectedAttributes).length === 0) {
+      resetVariantDisplay();
+    }
+  } else {
+    state.selectedAttributes[dim] = val;
+  }
+
+  // Update active variant and UI
+  state.activeVariant = findVariant();
+  updateVariantDisplay();
+  renderVariantChips();
+}
+
+/**
+ * Find variant matching current attribute selections
+ * @returns {object|null} Matching variant or null
+ */
+function findVariant() {
+  const selectedDims = Object.keys(state.selectedAttributes);
+  const allDims = state.currentProduct.variantDimensions || [];
+  
+  if (selectedDims.length === 0 || selectedDims.length !== allDims.length) {
+    return null;
+  }
+  
+  return state.currentProduct.variants.find(v => 
+    allDims.every(dim => 
+      v.attributes[dim] === state.selectedAttributes[dim]
+    )
+  );
+}
+
+/**
+ * Check if variant exists with given dimension value
+ */
 function hasVariantWithSelection(dimension, value) {
   const testAttributes = {
     ...state.selectedAttributes,
@@ -368,76 +232,39 @@ function hasVariantWithSelection(dimension, value) {
 }
 
 /**
- * Handles chip selection and updates application state
+ * Get unique values for a dimension
  */
-function handleChipClick(e) {
-  const chip = e.currentTarget;
-  const dim = chip.dataset.dim;
-  const val = chip.dataset.val;
-
-  // Toggle selection
-  if (state.selectedAttributes[dim] === val) {
-    // DESELECT - Clear this dimension
-    delete state.selectedAttributes[dim];
-    
-    // SPECIAL CASE: If this was the last dimension
-    if (Object.keys(state.selectedAttributes).length === 0) {
-      state.activeVariant = null;
-      dom.currentPackaged.textContent = "0";
-      dom.currentUsed.textContent = "0";
-    }
-  } else {
-    // SELECT - Update selection
-    state.selectedAttributes[dim] = val;
-  }
-
-  // Always find matching variant (may be null)
-  state.activeVariant = findVariant();
-  
-  // Update UI based on current state
-  if (state.activeVariant) {
-    updateQuantityDisplay();
-  } else {
-    // Explicitly clear if no variant matches
-    dom.currentPackaged.textContent = "0";
-    dom.currentUsed.textContent = "0";
-  }
-
-  // Re-render chips to update visual states
-  renderVariantChips();
+function getUniqueValues(dimension) {
+  if (!state.currentProduct?.variants) return [];
+  return [...new Set(
+    state.currentProduct.variants.map(v => v.attributes[dimension])
+  )].filter(Boolean);
 }
+
+// ==================================================
+// 5. PACKAGING OPERATIONS
+// ==================================================
 
 /**
- * Finds the first variant matching current attribute selections
- * @returns {Object|null} The matching variant or null
+ * Save packaging data to Firestore
  */
-function findVariant() {
-  const selectedDims = Object.keys(state.selectedAttributes);
-  
-  // No selection case
-  if (selectedDims.length === 0) return null;
-  
-  // Check against product's variant dimensions
-  const allDims = state.currentProduct.variantDimensions || [];
-  
-  // Only match if ALL dimensions are selected
-  if (selectedDims.length !== allDims.length) return null;
-  
-  return state.currentProduct.variants.find(v => 
-    allDims.every(dim => 
-      v.attributes[dim] === state.selectedAttributes[dim]
-    )
-  );
-}
-
-
-// Save packaging data changes to Firestore
 async function savePackagingData() {
-  if (!state.activeVariant || !validatePackagingInput()) return;
+   if (!state.activeVariant || !validatePackagingInput()) {
+    notify.show({
+      message: "Invalid packaging data! Check your inputs",
+      type: "error"
+    });
+    return;
+  }
   
   const { packagedQuantity, usedStock } = getInputValues();
   const packagingRef = doc(db, "packaging", state.currentProduct.productId);
 
+  notify.show({
+    message: `Saving ${state.currentProduct.name}...`,
+    type: "info",
+    timeout: 2000
+  });
   try {
     await runTransaction(db, async (transaction) => {
       const docSnap = await transaction.get(packagingRef);
@@ -464,22 +291,8 @@ async function savePackagingData() {
         variant.usedStock = Math.max(0, variant.usedStock - usedStock);
       }
       
-      // Update local state (NEW)
-      const productIndex = state.allProducts.findIndex(
-        p => p.productId === state.currentProduct.productId
-      );
-      if (productIndex !== -1) {
-        const variantIndexLocal = state.allProducts[productIndex].variants.findIndex(
-          v => v.variantId === state.activeVariant.variantId
-        );
-        if (variantIndexLocal !== -1) {
-          state.allProducts[productIndex].variants[variantIndexLocal] = {
-            ...state.allProducts[productIndex].variants[variantIndexLocal],
-            packagedQuantity: variant.packagedQuantity,
-            usedStock: variant.usedStock
-          };
-        }
-      }
+      // Update local state
+      updateLocalProductState(variant);
       
       // Push to undo stack
       state.undoStack.push({
@@ -493,19 +306,52 @@ async function savePackagingData() {
       });
       
       transaction.update(packagingRef, { variants });
+      // Clear redo stack on new action
+      state.redoStack = [];
+      updateUndoRedoButtons();
     });
-    
+    notify.show({
+      message: `Saved successfully! ${state.isAdding ? "Added" : "Subtracted"} 
+                ${getInputValues().packagedQuantity} units`,
+      type: "success"
+    });
     refreshCurrentVariantData();
-    dom.packagedQuantity.value = "";
-    dom.usedStock.value = "";
+    resetInputFields();
     
   } catch (error) {
     console.error("Save failed:", error);
-    alert("Save error: " + error.message);
+    notify.show({
+      message: `Save failed: ${error.message}`,
+      type: "error",
+      timeout: 4000
+    });
   }
 }
 
-// Add this new helper function
+/**
+ * Update local product state after save
+ */
+function updateLocalProductState(variant) {
+  const productIndex = state.allProducts.findIndex(
+    p => p.productId === state.currentProduct.productId
+  );
+  if (productIndex !== -1) {
+    const variantIndex = state.allProducts[productIndex].variants.findIndex(
+      v => v.variantId === state.activeVariant.variantId
+    );
+    if (variantIndex !== -1) {
+      state.allProducts[productIndex].variants[variantIndex] = {
+        ...state.allProducts[productIndex].variants[variantIndex],
+        packagedQuantity: variant.packagedQuantity,
+        usedStock: variant.usedStock
+      };
+    }
+  }
+}
+
+/**
+ * Refresh variant data from Firestore
+ */
 async function refreshCurrentVariantData() {
   if (!state.currentProduct?.productId) return;
 
@@ -513,7 +359,7 @@ async function refreshCurrentVariantData() {
   const docSnap = await getDoc(packagingRef);
 
   if (docSnap.exists()) {
-    // Update allProducts array (NEW)
+    // Update allProducts array
     const productIndex = state.allProducts.findIndex(
       p => p.productId === state.currentProduct.productId
     );
@@ -524,7 +370,7 @@ async function refreshCurrentVariantData() {
       };
     }
 
-    // Update active variant if exists
+    // Update active variant
     if (state.activeVariant) {
       const updatedVariant = docSnap.data().variants.find(
         v => v.variantId === state.activeVariant.variantId
@@ -537,45 +383,72 @@ async function refreshCurrentVariantData() {
   }
 }
 
-// Update button states
-function updateUndoRedoButtons() {
-    document.getElementById('undo-button').disabled = state.undoStack.length === 0;
-    document.getElementById('redo-button').disabled = state.redoStack.length === 0;
-  }
-  
-// Undo function
+// ==================================================
+// 6. UNDO/REDO SYSTEM
+// ==================================================
+
 async function undoLastAction() {
   if (state.undoStack.length === 0) return;
 
   const action = state.undoStack.pop();
   const packagingRef = doc(db, "packaging", action.productId);
 
-  await runTransaction(db, async (transaction) => {
-    const docSnap = await transaction.get(packagingRef);
-    const variants = [...docSnap.data().variants];
+  try {
+    const product = state.allProducts.find(p => p.productId === action.productId);
+    const variant = product?.variants.find(v => v.variantId === action.variantId);
     
-    const variantIndex = variants.findIndex(
-      v => v.variantId === action.variantId
-    );
-    
-    variants[variantIndex] = {
-      ...variants[variantIndex],
-      packagedQuantity: action.oldValues.packaged,
-      usedStock: action.oldValues.used
-    };
-    
-    transaction.update(packagingRef, { variants });
-  });
+    notify.show({
+      message: `
+        <div class="undo-redo-notification">
+          <strong>UNDO APPLIED</strong>
+          <div class="variant">${product?.name || 'Product'} - ${variant?.variantName || 'Variant'}</div>
+          <div class="change">
+            <span class="label">Packaged:</span>
+            <span class="from">${action.newValues.packaged}</span>
+            <span class="arrow">→</span>
+            <span class="to">${action.oldValues.packaged}</span>
+          </div>
+          <div class="change">
+            <span class="label">Used Stock:</span>
+            <span class="from">${action.newValues.used}</span>
+            <span class="arrow">→</span>
+            <span class="to">${action.oldValues.used}</span>
+          </div>
+        </div>
+      `,
+      type: "warning",
+      timeout: 5000
+    });
 
-  // Update UI
-  if (state.currentProduct?.productId === action.productId) {
-    state.activeVariant.packagedQuantity = action.oldValues.packaged;
-    state.activeVariant.usedStock = action.oldValues.used;
-    updateQuantityDisplay();
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(packagingRef);
+      const variants = [...docSnap.data().variants];
+      
+      const variantIndex = variants.findIndex(
+        v => v.variantId === action.variantId
+      );
+      
+      variants[variantIndex] = {
+        ...variants[variantIndex],
+        packagedQuantity: action.oldValues.packaged,
+        usedStock: action.oldValues.used
+      };
+      
+      transaction.update(packagingRef, { variants });
+    });
+
+    state.redoStack.push(action);
+    updateUndoRedoButtons();
+    await refreshCurrentVariantData();
+
+  } catch (error) {
+    console.error("Undo failed:", error);
+    notify.show({
+      message: `Undo failed: ${error.message}`,
+      type: "error",
+      timeout: 4000
+    });
   }
-  
-  state.redoStack.push(action);
-  updateUndoRedoButtons();
 }
 
 async function redoLastAction() {
@@ -584,77 +457,325 @@ async function redoLastAction() {
   const action = state.redoStack.pop();
   const packagingRef = doc(db, "packaging", action.productId);
 
-  await runTransaction(db, async (transaction) => {
-    const docSnap = await transaction.get(packagingRef);
-    const variants = [...docSnap.data().variants];
+  try {
+    const product = state.allProducts.find(p => p.productId === action.productId);
+    const variant = product?.variants.find(v => v.variantId === action.variantId);
     
-    const variantIndex = variants.findIndex(
-      v => v.variantId === action.variantId
-    );
-    
-    variants[variantIndex] = {
-      ...variants[variantIndex],
-      packagedQuantity: action.newValues.packaged,
-      usedStock: action.newValues.used
-    };
-    
-    transaction.update(packagingRef, { variants });
-  });
+    notify.show({
+      message: `
+        <div class="undo-redo-notification">
+          <strong>REDO APPLIED</strong>
+          <div class="variant">${product?.name || 'Product'} - ${variant?.variantName || 'Variant'}</div>
+          <div class="change">
+            <span class="label">Packaged:</span>
+            <span class="from">${action.oldValues.packaged}</span>
+            <span class="arrow">→</span>
+            <span class="to">${action.newValues.packaged}</span>
+          </div>
+          <div class="change">
+            <span class="label">Used Stock:</span>
+            <span class="from">${action.oldValues.used}</span>
+            <span class="arrow">→</span>
+            <span class="to">${action.newValues.used}</span>
+          </div>
+        </div>
+      `,
+      type: "info",
+      timeout: 5000
+    });
 
-  // Update UI
-  if (state.currentProduct?.productId === action.productId) {
-    state.activeVariant.packagedQuantity = action.newValues.packaged;
-    state.activeVariant.usedStock = action.newValues.used;
-    updateQuantityDisplay();
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(packagingRef);
+      const variants = [...docSnap.data().variants];
+      
+      const variantIndex = variants.findIndex(
+        v => v.variantId === action.variantId
+      );
+      
+      variants[variantIndex] = {
+        ...variants[variantIndex],
+        packagedQuantity: action.newValues.packaged,
+        usedStock: action.newValues.used
+      };
+      
+      transaction.update(packagingRef, { variants });
+    });
+
+    state.undoStack.push(action);
+    updateUndoRedoButtons();
+    await refreshCurrentVariantData();
+
+  } catch (error) {
+    console.error("Redo failed:", error);
+    notify.show({
+      message: `Redo failed: ${error.message}`,
+      type: "error",
+      timeout: 4000
+    });
   }
+}
+
+function updateUndoRedoButtons() {
+  const undoBtn = document.getElementById('undo-button');
+  const redoBtn = document.getElementById('redo-button');
   
-  state.undoStack.push(action);
-  updateUndoRedoButtons();
+  undoBtn.disabled = state.undoStack.length === 0;
+  redoBtn.disabled = state.redoStack.length === 0;
+  
+  // Add visual feedback
+  undoBtn.style.opacity = undoBtn.disabled ? "0.5" : "1";
+  redoBtn.style.opacity = redoBtn.disabled ? "0.5" : "1";
 }
 
 // ==================================================
-// AUTOCOMPLETE HANDLERS
+// 7. UI UPDATES AND UTILITIES
 // ==================================================
 
-// Handle product search input
-dom.productInput.addEventListener("input", function(e) {
-    const input = e.target.value.toLowerCase();
-    dom.autocomplete.innerHTML = "";
-    
-    if (!input) {
-        dom.autocomplete.style.display = "none";
-        return;
-    }
+function updateQuantityDisplay() {
+  if (!state.activeVariant) {
+    dom.currentPackaged.textContent = "0";
+    dom.currentUsed.textContent = "0";
+    return;
+  }
+  
+  dom.currentPackaged.textContent = state.activeVariant.packagedQuantity ?? 0;
+  dom.currentUsed.textContent = state.activeVariant.usedStock ?? 0;
+  
+}
 
-    // Filter products based on search input
-    const filtered = state.allProducts.filter(p => p.name.toLowerCase().includes(input));
-    if (filtered.length) {
-        dom.autocomplete.style.display = "block";
-        // Create suggestion items
-        filtered.forEach(p => {
-            const div = document.createElement("div");
-            div.textContent = p.name;
-            div.dataset.productId = p.productId;
-            dom.autocomplete.appendChild(div);
-        });
+function updateVariantDisplay() {
+  if (state.activeVariant) {
+    updateQuantityDisplay();
+  } else {
+    dom.currentPackaged.textContent = "0";
+    dom.currentUsed.textContent = "0";
+  }
+}
+
+function resetVariantDisplay() {
+  dom.currentPackaged.textContent = "0";
+  dom.currentUsed.textContent = "0";
+  state.activeVariant = null;
+}
+
+function resetInputFields() {
+  dom.packagedQuantity.value = "";
+  dom.usedStock.value = "";
+}
+
+function resetProductDetails() {
+  resetInputFields();
+  resetVariantDisplay();
+  state.currentProduct = null;
+  state.selectedAttributes = {};
+  
+  dom.productInput.value = "";
+  dom.autocomplete.style.display = "none";
+  dom.productDetails.style.display = "none";
+  dom.variantSelector.innerHTML = "";
+}
+
+// ==================================================
+// 8. VALIDATION AND INPUT HANDLING
+// ==================================================
+
+function validatePackagingInput() {
+  const values = getInputValues();
+  
+  if (isNaN(values.packagedQuantity) || values.packagedQuantity < 0) {
+    alert("Packaged quantity must be ≥ 0");
+    return false;
+  }
+  
+  if (isNaN(values.usedStock) || values.usedStock < 0) {
+    alert("Used stock must be ≥ 0");
+    return false;
+  }
+  
+  return true;
+}
+
+function getInputValues() {
+  return {
+    packagedQuantity: parseInt(dom.packagedQuantity.value) || 0,
+    usedStock: parseInt(dom.usedStock.value) || 0
+  };
+}
+
+// ==================================================
+// 9. ADMIN AND DATA MANAGEMENT
+// ==================================================
+
+// Generate packaging collection from products
+async function generatePackagingCollection() {
+   notify.show({
+    message: "Generating packaging collection...",
+    type: "info",
+    timeout: 3000
+  });
+  const [productsSnapshot, existingPackagingSnapshot] = await Promise.all([
+    getDocs(query(collection(db, "products"), where("trackPackaging", "==", true))),
+    getDocs(collection(db, "packaging"))
+  ]);
+
+  const batch = writeBatch(db);
+  const newProductIds = new Set();
+
+  // Process active products
+  for (const productDoc of productsSnapshot.docs) {
+    const productData = productDoc.data();
+    const packagingRef = doc(db, "packaging", productData.productId);
+    const packagingSnap = await getDoc(packagingRef);
+
+    newProductIds.add(productData.productId);
+
+    const existingVariants = packagingSnap.exists() ? packagingSnap.data().variants : [];
+    const countMap = new Map(existingVariants.map(v => [v.variantId, {
+      packaged: v.packagedQuantity,
+      used: v.usedStock
+    }]));
+
+    const activeVariants = productData.variants
+      ?.filter(v => v.isActive !== false)
+      ?.map(v => ({
+        variantId: v.variantId,
+        variantName: v.variantName,
+        attributes: v.attributes,
+        packagedQuantity: countMap.get(v.variantId)?.packaged || 0,
+        usedStock: countMap.get(v.variantId)?.used || 0
+      })) || [];
+
+    if (activeVariants.length > 0) {
+      batch.set(packagingRef, {
+        productId: productData.productId,
+        productName: productData.productName,
+        variantDimensions: productData.variantDimensions || [],
+        variants: activeVariants
+      }, { merge: true });
+    } else {
+      batch.delete(packagingRef);
     }
+  }
+
+  // Remove discontinued products
+  for (const packagingDoc of existingPackagingSnapshot.docs) {
+    const packagingData = packagingDoc.data();
+    if (!newProductIds.has(packagingData.productId)) {
+      batch.delete(packagingDoc.ref);
+    }
+  }
+
+   try {
+    await batch.commit();
+    fetchAllProducts();
+    notify.show({
+      message: `Updated ${newProductIds.size} products successfully!`,
+      type: "success"
+    });
+  } catch (error) {
+    notify.show({
+      message: `Generation failed: ${error.message}`,
+      type: "error",
+      timeout: 5000
+    });
+  }
+}
+
+// Reset all packaging data
+async function resetPackagingData() {
+  const snapshot = await getDocs(collection(db, "packaging"));
+  const batch = writeBatch(db);
+  let updatedCount = 0;
+
+  snapshot.docs.forEach(doc => {
+    const variants = Array.isArray(doc.data().variants) ? doc.data().variants : [];
+    const updatedVariants = variants.map(v => ({
+      ...v,
+      packagedQuantity: 0,
+      usedStock: 0
+    }));
+
+    batch.update(doc.ref, { variants: updatedVariants });
+    updatedCount++;
+  });
+
+  await batch.commit();
+  alert(`Packaging data reset for ${updatedCount} products.`);
+}
+
+// ==================================================
+// 10. EVENT HANDLERS AND TABLE MANAGEMENT
+// ==================================================
+
+function setupEventListeners() {
+  // Admin controls
+  document.getElementById("generate-packaging").addEventListener("click", generatePackagingCollection);
+  document.getElementById("toggle-packaging-table").addEventListener("click", togglePackagingTable);
+  document.getElementById("save-packaging").addEventListener("click", savePackagingData);
+  document.getElementById("reset-packaging").addEventListener("click", () => showConfirmationModal("reset"));
+  
+  // Product interaction
+  document.getElementById("cancel-scan").addEventListener("click", resetProductDetails);
+  document.getElementById("scan-barcode").addEventListener("click", () => {
+    const product = state.allProducts.find(p => p.name === dom.productInput.value);
+    product ? scanBarcode(product.productId) : alert("Product not found!");
+  });
+
+  // Operation mode toggle
+ document.getElementById("toggle-operation").addEventListener("click", function() {
+    state.isAdding = !state.isAdding;
+    updateOperationStyle(); // Add this line
 });
 
-// Handle autocomplete selection
-dom.autocomplete.addEventListener("click", e => {
-    if (e.target.tagName === "DIV") {
-        const productId = e.target.dataset.productId;
-        dom.productInput.value = e.target.textContent;
-        dom.autocomplete.style.display = "none";
-        scanBarcode(productId);
-    }
-});
+  // Modal controls
+  document.getElementById("cancel-action").addEventListener("click", () => {
+    dom.confirmationModal.style.display = "none";
+  });
 
-// ==================================================
-// TABLE HANDLERS
-// ==================================================
+  document.getElementById('undo-button').addEventListener('click', undoLastAction);
+  document.getElementById('redo-button').addEventListener('click', redoLastAction);
 
-// Set up real-time packaging table updates
+  // Autocomplete
+  dom.productInput.addEventListener("input", handleProductSearch);
+  dom.autocomplete.addEventListener("click", handleAutocompleteSelection);
+}
+
+function updateOperationStyle() {
+    const toggleBtn = document.getElementById('toggle-operation');
+    toggleBtn.textContent = state.isAdding ? '+ Add' : '- Subtract';
+    toggleBtn.style.backgroundColor = state.isAdding ? '#3498db' : '#e74c3c';
+}
+
+function handleProductSearch(e) {
+  const input = e.target.value.toLowerCase();
+  dom.autocomplete.innerHTML = "";
+  
+  if (!input) {
+    dom.autocomplete.style.display = "none";
+    return;
+  }
+
+  const filtered = state.allProducts.filter(p => p.name.toLowerCase().includes(input));
+  if (filtered.length) {
+    dom.autocomplete.style.display = "block";
+    filtered.forEach(p => {
+      const div = document.createElement("div");
+      div.textContent = p.name;
+      div.dataset.productId = p.productId;
+      dom.autocomplete.appendChild(div);
+    });
+  }
+}
+
+function handleAutocompleteSelection(e) {
+  if (e.target.tagName === "DIV") {
+    const productId = e.target.dataset.productId;
+    dom.productInput.value = e.target.textContent;
+    dom.autocomplete.style.display = "none";
+    scanBarcode(productId);
+  }
+}
+
 function setupPackagingTableListener() {
   onSnapshot(collection(db, "packaging"), (snapshot) => {
     dom.packagingTable.innerHTML = '';
@@ -664,17 +785,14 @@ function setupPackagingTableListener() {
       const { productName, variants } = doc.data();
 
       variants.forEach(variant => {
-        // Generate readable variant display
         const variantDisplay = variant.variantName || 
           Object.entries(variant.attributes || {})
             .map(([dim, val]) => `${dim}:${val}`)
             .join(', ') || "—";
 
-        // Update totals
         totalPackaged += variant.packagedQuantity;
         totalUsed += variant.usedStock;
 
-        // Append table row with tooltips
         dom.packagingTable.innerHTML += `
           <tr>
             <td title="Product ID: ${doc.id}">${productName}</td>
@@ -686,7 +804,7 @@ function setupPackagingTableListener() {
       });
     });
 
-    // Append totals row with visual styling
+    // Add totals row
     dom.packagingTable.innerHTML += `
       <tr style="background: #007bff; color: #fff; font-weight: bold;">
         <td colspan="2" style="text-align: center;">Total =</td>
@@ -695,96 +813,33 @@ function setupPackagingTableListener() {
       </tr>
     `;
 
-    // Update header total display
     dom.totalPackaged.textContent = totalPackaged.toLocaleString();
   });
-
-   
 }
 
-
-// Toggle packaging table visibility
 function togglePackagingTable() {
-    dom.packagingTableContainer.style.display = 
-        dom.packagingTableContainer.style.display === "none" ? "block" : "none";
+  dom.packagingTableContainer.style.display = 
+    dom.packagingTableContainer.style.display === "none" ? "block" : "none";
 }
 
-// ==================================================
-// EVENT LISTENERS & INITIALIZATION
-// ==================================================
-
-// Set up all event listeners
-function setupEventListeners() {
-    // Admin controls
-    document.getElementById("generate-packaging").addEventListener("click", generatePackagingCollection);
-    document.getElementById("toggle-packaging-table").addEventListener("click", togglePackagingTable);
-    document.getElementById("save-packaging").addEventListener("click", savePackagingData);
-    document.getElementById("reset-packaging").addEventListener("click", () => showConfirmationModal("reset"));
-    
-    // Product interaction
-    document.getElementById("cancel-scan").addEventListener("click", resetProductDetails);
-    document.getElementById("scan-barcode").addEventListener("click", () => {
-        const product = state.allProducts.find(p => p.name === dom.productInput.value);
-        product ? scanBarcode(product.productId) : alert("Product not found!");
-    });
-
-    // Operation mode toggle
-    document.getElementById("toggle-operation").addEventListener("click", function() {
-        state.isAdding = !state.isAdding;
-        this.textContent = state.isAdding ? "+ Add" : "- Subtract";
-        this.classList.toggle("subtract", !state.isAdding);
-    });
-
-    // Modal controls
-    document.getElementById("cancel-action").addEventListener("click", () => {
-        dom.confirmationModal.style.display = "none";
-    });
-
-    document.getElementById('undo-button').addEventListener('click', undoLastAction);
-    document.getElementById('redo-button').addEventListener('click', redoLastAction);
-}
-
-// Show confirmation dialog for destructive actions
 function showConfirmationModal(action) {
-    if (action === "reset") {
-        dom.modalMessage.textContent = "Are you sure you want to reset all packaging data?";
-        document.getElementById("confirm-action").onclick = async () => {
-            dom.confirmationModal.style.display = "none";
-            await resetPackagingData();
-        };
-    }
-    dom.confirmationModal.style.display = "block";
+  if (action === "reset") {
+    dom.modalMessage.textContent = "Are you sure you want to reset all packaging data?";
+    document.getElementById("confirm-action").onclick = async () => {
+      dom.confirmationModal.style.display = "none";
+      await resetPackagingData();
+    };
+  }
+  dom.confirmationModal.style.display = "block";
 }
 
-// // PWA Installation Handler
-// window.addEventListener('beforeinstallprompt', e => {
-//     e.preventDefault();
-//     // Create install button
-//     const installBtn = document.createElement('button');
-//     installBtn.id = 'installBtn';
-//     installBtn.textContent = 'Install App';
-//     installBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;';
-    
-//     // Handle install button click
-//     installBtn.addEventListener('click', () => {
-//         installBtn.style.display = 'none';
-//         e.prompt().then(() => e = null);
-//     });
-    
-//     document.body.appendChild(installBtn);
-// });
+// ==================================================
+// INITIALIZATION
+// ==================================================
 
-// Initialize application
-window.addEventListener("load", () => {
-    fetchAllProducts();           // Load product data
-    setupPackagingTableListener();// Start real-time table updates
-    setupEventListeners();        // Register event handlers
-});
-
-// ⚠️ Temporary code - REMOVE LATER ⚠️
+// Temporary service worker cleanup (remove in production)
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      registrations.forEach(registration => registration.unregister());
-      console.log('All Service Workers unregistered');
-    });
-  }
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(registration => registration.unregister());
+  });
+}
