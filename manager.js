@@ -296,7 +296,7 @@ function showArchiveModal(type) {
 
 // Confirm archive action
 async function confirmArchive() {
-    const shouldReset = dom.modal.resetCheckbox.checked;
+    const shouldReset = document.getElementById('reset-after-archive').checked;
     const type = state.currentArchiveType;
     const data = type === "packaging" ? state.packagingData : state.returnsData;
     const unitField = type === "packaging" ? "packagedQuantity" : "returnedQuantity";
@@ -304,10 +304,15 @@ async function confirmArchive() {
     const archiveDate = new Date().toISOString().split("T")[0];
     const archiveCollection = `${type}_archive`;
     
-    // 1. Create archive document
+    // Calculate totals
+    const totalUnits = data.reduce((sum, product) => sum + 
+        product.variants.reduce((vSum, variant) => vSum + variant[unitField], 0), 0);
+
+    // 1. Create enhanced archive document
     const archiveRef = doc(collection(db, archiveCollection), archiveDate);
     batch.set(archiveRef, {
         date: archiveDate,
+        [type === "packaging" ? "totalPackaged" : "totalReturned"]: totalUnits,
         products: data.map(product => ({
             productId: product.id,
             productName: product.name,
@@ -334,14 +339,19 @@ async function confirmArchive() {
     
     try {
         await batch.commit();
-        dom.modal.element.style.display = "none";
-        alert(`${type.charAt(0).toUpperCase() + type.slice(1)} data archived successfully!`);
+        document.getElementById('archive-modal').style.display = "none";
+        notify.show({
+            message: `${type} data archived with totals!`,
+            type: "success"
+        });
     } catch (error) {
         console.error("Archive failed:", error);
-        alert("Archive failed. Check console for details.");
+        notify.show({
+            message: `Archive failed: ${error.message}`,
+            type: "error"
+        });
     }
 }
-
 // Generate packaging collection from products
 async function generatePackagingCollection() {
     try {
@@ -514,29 +524,25 @@ function formatVariantName(attributes) {
 
 // Reset data
 async function resetData(type) {
-    if (!confirm(`Reset ALL ${type} data to zero? This cannot be undone.`)) return;
-    
-    const data = type === "packaging" ? state.packagingData : state.returnsData;
-    const batch = writeBatch(db);
-    
-    data.forEach(product => {
-        const docRef = doc(db, type, product.id);
-        batch.update(docRef, {
-            variants: product.variants.map(v => ({
-                ...v,
-                [type === "packaging" ? "packagedQuantity" : "returnedQuantity"]: 0,
-                ...(type === "packaging" && { usedStock: 0 })
-            }))
-        });
+  const data = type === "packaging" ? state.packagingData : state.returnsData;
+  const batch = writeBatch(db);
+  
+  data.forEach(product => {
+    const docRef = doc(db, type, product.id);
+    batch.update(docRef, {
+      variants: product.variants.map(v => ({
+        ...v,
+        [type === "packaging" ? "packagedQuantity" : "returnedQuantity"]: 0,
+        ...(type === "packaging" && { usedStock: 0 })
+      }))
     });
-    
-    try {
-        await batch.commit();
-        alert(`${type.charAt(0).toUpperCase() + type.slice(1)} data reset successfully!`);
-    } catch (error) {
-        console.error("Reset failed:", error);
-        alert("Reset failed. Check console for details.");
-    }
+  });
+  
+  await batch.commit();
+  notify.show({
+    message: `${type} data reset successfully`,
+    type: "success"
+  });
 }
 
 // Set up event listeners
