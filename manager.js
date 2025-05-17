@@ -248,26 +248,50 @@ async function saveRowChanges(row) {
     }
 }
 
+// Show reset modal
+function showResetModal(type) {
+    const modal = document.getElementById('reset-modal');
+    document.getElementById('reset-message').textContent = 
+        `Are you sure you want to reset all ${type} data? This cannot be undone.`;
+    
+    modal.style.display = 'flex';
+    
+    // Set up confirmation handler
+    const confirmBtn = document.getElementById('confirm-reset');
+    confirmBtn.onclick = async () => {
+        modal.style.display = 'none';
+        await resetData(type);
+    };
+    
+    // Cancel handler
+    document.getElementById('cancel-reset').onclick = () => {
+        modal.style.display = 'none';
+    };
+}
+
 // Show archive modal
 function showArchiveModal(type) {
     state.currentArchiveType = type;
-    const data = type === "packaging" ? state.packagingData : state.returnsData;
-    const unitField = type === "packaging" ? "packagedQuantity" : "returnedQuantity";
+    const data = type === 'packaging' ? state.packagingData : state.returnsData;
+    const unitField = type === 'packaging' ? 'packagedQuantity' : 'returnedQuantity';
     
-    // Calculate summary stats
-    const totalProducts = data.length;
-    const totalUnits = data
-        .flatMap(p => p.variants)
-        .reduce((sum, v) => sum + v[unitField], 0);
-    
-    // Update modal
-    dom.modal.title.textContent = `Archive ${type.charAt(0).toUpperCase() + type.slice(1)} Data`;
-    dom.modal.summaryType.textContent = type === "packaging" ? "📦 Packaging Data" : "🔄 Returns Data";
-    dom.modal.productCount.textContent = totalProducts;
-    dom.modal.unitCount.textContent = totalUnits;
-    
+    // Calculate metrics
+    const productCount = new Set(data.map(p => p.id)).size;
+    const variantCount = data.reduce((sum, p) => sum + p.variants.length, 0);
+    const totalUnits = data.reduce((sum, p) => sum + 
+        p.variants.reduce((vSum, v) => vSum + v[unitField], 0), 0);
+
+    // Update modal display
+    document.getElementById('summary-type').textContent = 
+        type === 'packaging' ? '📦 Packaging Data' : '🔄 Returns Data';
+    document.getElementById('product-count').textContent = productCount;
+    document.getElementById('variant-count').textContent = variantCount;
+    document.getElementById('total-units').textContent = totalUnits;
+    document.getElementById('unit-label').textContent = 
+        type === 'packaging' ? 'Total Packaged' : 'Total Returned';
+
     // Show modal
-    dom.modal.element.style.display = "block";
+    document.getElementById('archive-modal').style.display = 'flex';
 }
 
 // Confirm archive action
@@ -524,12 +548,12 @@ function setupEventListeners() {
     // Packaging actions
     dom.actionButtons.generatePackaging.addEventListener("click", generatePackagingCollection);
     dom.actionButtons.archivePackaging.addEventListener("click", () => showArchiveModal("packaging"));
-    dom.actionButtons.resetPackaging.addEventListener("click", () => resetData("packaging"));
+    dom.actionButtons.resetPackaging.addEventListener("click", () => showResetModal('packaging'));
     
     // Returns actions
     dom.actionButtons.generateReturns.addEventListener("click", generateReturnsCollection);
     dom.actionButtons.archiveReturns.addEventListener("click", () => showArchiveModal("returns"));
-    dom.actionButtons.resetReturns.addEventListener("click", () => resetData("returns"));
+    dom.actionButtons.resetReturns.addEventListener("click", () => showResetModal("returns"));
     
     // Click outside modal to close
     window.addEventListener("click", (e) => {

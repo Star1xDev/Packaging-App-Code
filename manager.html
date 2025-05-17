@@ -74,23 +74,48 @@
             </div>
         </div>
 
-        <div id="archive-modal" class="modal">
+        <!-- Update the modal structure in manager.html -->
+        <div id="archive-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <span class="close-modal">&times;</span>
                 <h3 id="modal-title">Archive Summary</h3>
-                <div class="summary-card" id="data-summary">
+                
+                <!-- Single summary card that we'll update dynamically -->
+                <div class="summary-card">
                     <h4 id="summary-type">📦 Packaging Data</h4>
-                    <div class="summary-stats">
-                        <span><strong>Products:</strong> <span id="product-count">0</span></span>
-                        <span><strong>Units:</strong> <span id="unit-count">0</span></span>
+                    <div class="metric-group">
+                        <div class="metric">
+                            <span class="value" id="product-count">0</span>
+                            <span class="label">Products</span>
+                        </div>
+                        <div class="metric">
+                            <span class="value" id="variant-count">0</span>
+                            <span class="label">Variants</span>
+                        </div>
+                        <div class="metric highlight">
+                            <span class="value" id="total-units">0</span>
+                            <span class="label" id="unit-label">Total Packaged</span>
+                        </div>
                     </div>
                 </div>
+
                 <div class="modal-actions">
                     <label class="checkbox-container">
-                        <input type="checkbox" id="reset-after-archive" checked>
+                        <input type="checkbox" id="reset-after-archive" >
                         <span>Reset quantities after archiving</span>
                     </label>
                     <button id="confirm-archive" class="btn-primary">Confirm Archive</button>
+                </div>
+            </div>
+        </div>
+        <!-- Add this near the archive modal in manager.html -->
+        <div id="reset-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>Confirm Reset</h3>
+                <p id="reset-message">Are you sure you want to reset all packaging data?</p>
+                <div class="modal-actions">
+                    <button id="confirm-reset" class="btn-danger">Reset Data</button>
+                    <button id="cancel-reset" class="btn-secondary">Cancel</button>
                 </div>
             </div>
         </div>
