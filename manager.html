@@ -27,8 +27,12 @@
         <div class="manager-tabs">
             <button class="tab-btn active" data-tab="packaging">Packaging</button>
             <button class="tab-btn" data-tab="returns">Returns</button>
+            <!-- New archive tabs -->
+            <button class="tab-btn" data-tab="packaging-archive">Packaging Archive</button>
+            <button class="tab-btn" data-tab="returns-archive">Returns Archive</button>
         </div>
 
+        <!-- packaging tabs -->
         <div id="packaging-tab" class="tab-content active">
             <div class="action-bar">
                 <button id="generate-packaging">Update</button>
@@ -51,7 +55,7 @@
                 </table>
             </div>
         </div>
-
+        <!-- returns tabs -->
         <div id="returns-tab" class="tab-content">
             <div class="action-bar">
                 <button id="generate-returns">Update</button>
@@ -73,7 +77,50 @@
                 </table>
             </div>
         </div>
+        <!-- Add these tab contents -->
+        <div id="packaging-archive-tab" class="tab-content">
+            <div class="archive-header">
+                <h3>Packaging History</h3>
+            </div>
+            <div class="table-container">
+                <table id="packaging-archive-table">
+                    <thead>
+                        <tr id="packaging-dates-header">
+                            <!-- Dates will be inserted here by JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="packaging-archive-body">
+                        <!-- Data will be inserted here by JS -->
+                    </tbody>
+                    <tfoot id="packaging-totals-footer">
+                        <!-- Totals will be inserted here by JS -->
+                    </tfoot>
+                </table>
+            </div>
+        </div>
 
+        <div id="returns-archive-tab" class="tab-content">
+            <div class="archive-header">
+                <h3>Returns History</h3>
+            </div>
+            <div class="table-container">
+                <table id="returns-archive-table">
+                    <thead>
+                        <tr id="returns-dates-header">
+                            <!-- Dates will be inserted here by JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="returns-archive-body">
+                        <!-- Data will be inserted here by JS -->
+                    </tbody>
+                    <tfoot id="returns-totals-footer">
+                        <!-- Totals will be inserted here by JS -->
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        
         <!-- Update the modal structure in manager.html -->
         <div id="archive-modal" class="modal" style="display: none;">
             <div class="modal-content">

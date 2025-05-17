@@ -1,7 +1,7 @@
 import { db } from "./firebase-config.js";
 import { 
     collection, getDocs, doc, setDoc, writeBatch, query, where,
-    onSnapshot, runTransaction
+    onSnapshot, runTransaction, orderBy
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 import { NotificationSystem as notify } from './notification.js';
 
@@ -318,6 +318,7 @@ async function confirmArchive() {
             productName: product.name,
             variants: product.variants.map(v => ({
                 variantId: v.variantId,
+                variantName: v.variantName || Object.values(v.attributes).join(" "),
                 [unitField]: v[unitField]
             }))
         }))
@@ -568,6 +569,136 @@ function setupEventListeners() {
         }
     });
 }
+
+// Add this to your existing tab setup
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab;
+        if (tabName === 'packaging-archive') loadArchiveTable('packaging');
+        if (tabName === 'returns-archive') loadArchiveTable('returns');
+    });
+});
+
+// Main archive loading function
+async function loadArchiveTable(type) {
+    const tableId = `${type}-archive-table`;
+    const headerRow = document.getElementById(`${type}-dates-header`);
+    const tableBody = document.getElementById(`${type}-archive-body`);
+    const footerRow = document.getElementById(`${type}-totals-footer`);
+
+    // Show loading state
+    tableBody.innerHTML = '<tr><td colspan="100%">Loading data...</td></tr>';
+
+    try {
+        // 1. Get all archive documents sorted by date (newest first)
+        const snapshot = await getDocs(
+            query(collection(db, `${type}_archive`), 
+            orderBy("date", "desc")
+        )
+        );
+
+        // 2. Process data into structured format
+        const dates = [];
+        const productsMap = new Map();
+
+        snapshot.forEach(doc => {
+            const date = doc.data().date;
+            dates.push(date);
+
+            doc.data().products.forEach(product => {
+                if (!productsMap.has(product.productId)) {
+                    productsMap.set(product.productId, {
+                        name: product.productName,
+                        variants: new Map()
+                    });
+                }
+
+                const productData = productsMap.get(product.productId);
+                
+                product.variants.forEach(variant => {
+                    if (!productData.variants.has(variant.variantId)) {
+                        productData.variants.set(variant.variantId, {
+                            name: variant.variantName,
+                            quantities: {}
+                        });
+                    }
+                    
+                    const variantData = productData.variants.get(variant.variantId);
+                    variantData.quantities[date] = 
+                        type === 'packaging' ? variant.packagedQuantity : variant.returnedQuantity;
+                });
+            });
+        });
+
+        // 3. Build header row (Product, Variant, Dates, Total)
+        let headerHTML = `
+            <th class="product-col">Product</th>
+            <th class="variant-col">Variant</th>
+        `;
+        
+        dates.forEach(date => {
+            headerHTML += `<th class="date-col">${formatDisplayDate(date)}</th>`;
+        });
+        
+        headerHTML += `<th class="total-col">Total</th>`;
+        headerRow.innerHTML = headerHTML;
+
+        // 4. Build table body
+        let bodyHTML = '';
+        const dailyTotals = new Array(dates.length).fill(0);
+        let grandTotal = 0;
+
+        productsMap.forEach((product, productId) => {
+            product.variants.forEach((variant, variantId) => {
+                let rowHTML = `
+                    <tr>
+                        <td>${product.name}</td>
+                        <td>${variant.name}</td>
+                `;
+                
+                let variantTotal = 0;
+                dates.forEach((date, index) => {
+                    const qty = variant.quantities[date] || 0;
+                    rowHTML += `<td>${qty || '-'}</td>`;
+                    
+                    if (qty) {
+                        variantTotal += qty;
+                        dailyTotals[index] += qty;
+                    }
+                });
+                
+                grandTotal += variantTotal;
+                rowHTML += `<td class="total-cell">${variantTotal}</td></tr>`;
+                bodyHTML += rowHTML;
+            });
+        });
+
+        tableBody.innerHTML = bodyHTML || '<tr><td colspan="100%">No archive data found</td></tr>';
+
+        // 5. Build footer with daily totals
+        let footerHTML = `
+            <td colspan="2" class="totals-label">Daily Totals</td>
+        `;
+        
+        dailyTotals.forEach(total => {
+            footerHTML += `<td class="daily-total">${total}</td>`;
+        });
+        
+        footerHTML += `<td class="grand-total">${grandTotal}</td>`;
+        footerRow.innerHTML = footerHTML;
+
+    } catch (error) {
+        console.error(`Error loading ${type} archive:`, error);
+        tableBody.innerHTML = `<tr><td colspan="100%">Error loading data: ${error.message}</td></tr>`;
+    }
+}
+
+// Helper functions
+function formatDisplayDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 
 // Initialize when DOM loads
 document.addEventListener("DOMContentLoaded", initManager);

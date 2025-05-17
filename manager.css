@@ -1,5 +1,37 @@
 /* Manager-specific styles that don't conflict with existing styles.css */
 
+/* manager page css */
+
+.manager-container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+  }
+  
+  .btn-primary {
+    background: #3498db;
+    color: white;
+  }
+  
+  .btn-danger {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  #archive-status {
+    padding: 10px;
+    border-radius: 5px;
+  }
+
 /* Tab System */
 .manager-tabs {
     display: flex;
@@ -182,4 +214,120 @@
 .metric .label {
     font-size: 0.8rem;
     color: #7f8c8d;
+}
+
+/* Archive Tabs */
+.tab-content {
+    display: none;
+    padding: 15px;
+    background: white;
+    border-radius: 0 0 5px 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Archive Tables */
+.archive-header {
+    margin-bottom: 15px;
+}
+
+.table-container {
+    overflow-x: auto;
+    max-width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+#packaging-archive-table,
+#returns-archive-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px;
+}
+
+#packaging-archive-table th,
+#returns-archive-table th {
+    background: #2c3e50;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    white-space: nowrap;
+}
+
+#packaging-archive-table td,
+#returns-archive-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+}
+
+/* Column Styles */
+.product-col {
+    min-width: 150px;
+    text-align: left !important;
+}
+
+.variant-col {
+    min-width: 120px;
+    text-align: left !important;
+}
+
+.date-col {
+    min-width: 80px;
+}
+
+.total-col {
+    min-width: 90px;
+    font-weight: bold;
+}
+
+/* Total Cells */
+.total-cell,
+.daily-total,
+.grand-total {
+    font-weight: bold;
+    background-color: #f8f9fa;
+}
+
+.totals-label {
+    font-weight: bold;
+    text-align: center !important;
+    background-color: #f8f9fa;
+}
+
+/* Frozen first columns */
+#packaging-archive-table tr td:first-child,
+#returns-archive-table tr td:first-child {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 1;
+    text-align: left;
+}
+
+#packaging-archive-table tr td:nth-child(2),
+#returns-archive-table tr td:nth-child(2) {
+    position: sticky;
+    left: 150px; /* Match product-col width */
+    background: white;
+    z-index: 1;
+    text-align: left;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .product-col {
+        min-width: 120px;
+    }
+    .variant-col {
+        min-width: 100px;
+    }
+    .date-col {
+        min-width: 60px;
+    }
 }
