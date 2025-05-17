@@ -62,10 +62,10 @@ const dom = {
  * Initialize application on load
  */
 function initializeApp() {
+  notify.init();
   fetchAllProducts();
   setupPackagingTableListener();
   setupEventListeners();
-  notify.init();
 }
 
 window.addEventListener("load", initializeApp);
@@ -606,80 +606,7 @@ function getInputValues() {
 // 9. ADMIN AND DATA MANAGEMENT
 // ==================================================
 
-// Generate packaging collection from products
-async function generatePackagingCollection() {
-   notify.show({
-    message: "Generating packaging collection...",
-    type: "info",
-    timeout: 3000
-  });
-  const [productsSnapshot, existingPackagingSnapshot] = await Promise.all([
-    getDocs(query(collection(db, "products"), where("trackPackaging", "==", true))),
-    getDocs(collection(db, "packaging"))
-  ]);
 
-  const batch = writeBatch(db);
-  const newProductIds = new Set();
-
-  // Process active products
-  for (const productDoc of productsSnapshot.docs) {
-    const productData = productDoc.data();
-    const packagingRef = doc(db, "packaging", productData.productId);
-    const packagingSnap = await getDoc(packagingRef);
-
-    newProductIds.add(productData.productId);
-
-    const existingVariants = packagingSnap.exists() ? packagingSnap.data().variants : [];
-    const countMap = new Map(existingVariants.map(v => [v.variantId, {
-      packaged: v.packagedQuantity,
-      used: v.usedStock
-    }]));
-
-    const activeVariants = productData.variants
-      ?.filter(v => v.isActive !== false)
-      ?.map(v => ({
-        variantId: v.variantId,
-        variantName: v.variantName,
-        attributes: v.attributes,
-        packagedQuantity: countMap.get(v.variantId)?.packaged || 0,
-        usedStock: countMap.get(v.variantId)?.used || 0
-      })) || [];
-
-    if (activeVariants.length > 0) {
-      batch.set(packagingRef, {
-        productId: productData.productId,
-        productName: productData.productName,
-        variantDimensions: productData.variantDimensions || [],
-        variants: activeVariants
-      }, { merge: true });
-    } else {
-      batch.delete(packagingRef);
-    }
-  }
-
-  // Remove discontinued products
-  for (const packagingDoc of existingPackagingSnapshot.docs) {
-    const packagingData = packagingDoc.data();
-    if (!newProductIds.has(packagingData.productId)) {
-      batch.delete(packagingDoc.ref);
-    }
-  }
-
-   try {
-    await batch.commit();
-    fetchAllProducts();
-    notify.show({
-      message: `Updated ${newProductIds.size} products successfully!`,
-      type: "success"
-    });
-  } catch (error) {
-    notify.show({
-      message: `Generation failed: ${error.message}`,
-      type: "error",
-      timeout: 5000
-    });
-  }
-}
 
 // Reset all packaging data
 async function resetPackagingData() {
@@ -709,10 +636,10 @@ async function resetPackagingData() {
 
 function setupEventListeners() {
   // Admin controls
-  document.getElementById("generate-packaging").addEventListener("click", generatePackagingCollection);
+  // document.getElementById("generate-packaging").addEventListener("click", generatePackagingCollection);
   document.getElementById("toggle-packaging-table").addEventListener("click", togglePackagingTable);
   document.getElementById("save-packaging").addEventListener("click", savePackagingData);
-  document.getElementById("reset-packaging").addEventListener("click", () => showConfirmationModal("reset"));
+  // document.getElementById("reset-packaging").addEventListener("click", () => showConfirmationModal("reset"));
   
   // Product interaction
   document.getElementById("cancel-scan").addEventListener("click", resetProductDetails);

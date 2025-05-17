@@ -41,10 +41,10 @@ const dom = {
 // ==================================================
 
 function initializeApp() {
+    notify.init();
     fetchAllProducts();
     setupReturnsTableListener();
     setupEventListeners();
-    notify.init();
 }
 
 window.addEventListener("load", initializeApp);
@@ -502,76 +502,7 @@ function validateReturnInput() {
 // 8. ADMIN AND DATA MANAGEMENT
 // ==================================================
 
-async function generateReturnsCollection() {
-    notify.show({
-        message: "Generating returns collection...",
-        type: "info",
-        timeout: 3000
-    });
 
-    const [productsSnapshot, existingReturnsSnapshot] = await Promise.all([
-        getDocs(collection(db, "products")),
-        getDocs(collection(db, "returns"))
-    ]);
-
-    const batch = writeBatch(db);
-    const newProductIds = new Set();
-
-    // Process all products (not filtered by trackPackaging)
-    productsSnapshot.forEach(productDoc => {
-        const productData = productDoc.data();
-        const returnsRef = doc(db, "returns", productData.productId);
-        newProductIds.add(productData.productId);
-
-        // Find existing returns data if it exists
-        const existingReturnsDoc = existingReturnsSnapshot.docs.find(d => d.id === productData.productId);
-        const existingVariants = existingReturnsDoc?.data()?.variants || [];
-        const countMap = new Map(existingVariants.map(v => [v.variantId, v.returnedQuantity]));
-
-        // Create variants array preserving existing quantities
-        const activeVariants = productData.variants
-            ?.filter(v => v.isActive !== false)
-            ?.map(v => ({
-                variantId: v.variantId,
-                variantName: v.variantName || `${v.attributes?.color} - ${v.attributes?.size}`,
-                attributes: v.attributes || {},
-                returnedQuantity: countMap.get(v.variantId) || 0 // Preserve existing or default to 0
-            })) || [];
-
-        if (activeVariants.length > 0) {
-            batch.set(returnsRef, {
-                productId: productData.productId,
-                productName: productData.productName,
-                variantDimensions: productData.variantDimensions || [],
-                variants: activeVariants
-            }, { merge: true });
-        } else {
-            batch.delete(returnsRef);
-        }
-    });
-
-    // Remove returns for discontinued products
-    existingReturnsSnapshot.docs.forEach(doc => {
-        if (!newProductIds.has(doc.id)) {
-            batch.delete(doc.ref);
-        }
-    });
-
-    try {
-        await batch.commit();
-        fetchAllProducts();
-        notify.show({
-            message: "Returns collection updated successfully!",
-            type: "success"
-        });
-    } catch (error) {
-        notify.show({
-            message: `Generation failed: ${error.message}`,
-            type: "error",
-            timeout: 5000
-        });
-    }
-}
 
 async function resetReturnsData() {
     const snapshot = await getDocs(collection(db, "returns"));
@@ -648,10 +579,10 @@ function toggleReturnsTable() {
 
 function setupEventListeners() {
     // Admin controls
-    document.getElementById("generate-returns").addEventListener("click", generateReturnsCollection);
+    // document.getElementById("generate-returns").addEventListener("click", generateReturnsCollection);
     document.getElementById("toggle-returns-table").addEventListener("click", toggleReturnsTable);
     document.getElementById("save-return").addEventListener("click", saveReturn);
-    document.getElementById("reset-returns").addEventListener("click", () => showConfirmationModal("reset"));
+    // document.getElementById("reset-returns").addEventListener("click", () => showConfirmationModal("reset"));
     
     // Product interaction
     document.getElementById("cancel-return").addEventListener("click", resetProductDetails);
