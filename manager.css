@@ -1,0 +1,122 @@
+/* Manager-specific styles that don't conflict with existing styles.css */
+
+/* Tab System */
+.manager-tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 12px 24px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #555;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+
+.tab-btn.active {
+    color: #3498db;
+    border-bottom-color: #3498db;
+    font-weight: bold;
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Action Bar */
+.action-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+/* Tables */
+.table-container {
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.manager-container table {
+    width: 100%;
+    margin-top: 0;
+}
+
+.manager-container th {
+    background: #2c3e50;
+    position: sticky;
+    top: 0;
+}
+
+.manager-container td.editable {
+    background: #fff8e1;
+    position: relative;
+}
+
+.manager-container td.editable:focus {
+    outline: 2px solid #3498db;
+}
+
+/* Modal Enhancements */
+.modal-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+.summary-card {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.summary-card h4 {
+    margin-top: 0;
+    color: #2c3e50;
+}
+
+.summary-stats {
+    display: flex;
+    justify-content: space-between;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .manager-tabs {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .action-bar {
+        flex-direction: column;
+    }
+    
+    .action-bar button {
+        width: 100%;
+    }
+}
