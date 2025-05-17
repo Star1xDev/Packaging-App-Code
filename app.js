@@ -833,13 +833,3 @@ function showConfirmationModal(action) {
   dom.confirmationModal.style.display = "block";
 }
 
-// ==================================================
-// INITIALIZATION
-// ==================================================
-
-// Temporary service worker cleanup (remove in production)
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    registrations.forEach(registration => registration.unregister());
-  });
-}

@@ -3,13 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- PWA Configuration -->
-    <link rel="manifest" href="/Packaging-App-Code/Manifest.json" crossorigin="use-credentials">
-    <meta name="theme-color" content="#3498db">
     
-    <!-- iOS PWA Settings -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="theme-color" content="#3498db">
     
     <!-- Styles & Favicons -->
     <link rel="stylesheet" href="styles.css">
@@ -124,16 +119,3 @@
     
 </body>
 </html>
-
-
-<!--
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/Packaging-App-Code/sw.js', { scope: '/Packaging-App-Code/' })
-                .then(reg => console.log('Service Worker registered:', reg))
-                .catch(err => console.log('Service Worker registration failed:', err));
-        });
-    }
-</script>
--->
