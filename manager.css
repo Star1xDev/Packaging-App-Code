@@ -1,7 +1,7 @@
-/* Manager-specific styles that don't conflict with existing styles.css */
+/* ======================== */
+/* MANAGER DASHBOARD LAYOUT */
+/* ======================== */
 
-/* manager page css */
-/* wtffsdgfg */
 .manager-container {
     max-width: 800px;
     margin: 20px auto;
@@ -9,30 +9,12 @@
     background: white;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  }
-  
-  .action-buttons {
-    display: flex;
-    gap: 10px;
-    margin: 20px 0;
-  }
-  
-  .btn-primary {
-    background: #3498db;
-    color: white;
-  }
-  
-  .btn-danger {
-    background: #e74c3c;
-    color: white;
-  }
-  
-  #archive-status {
-    padding: 10px;
-    border-radius: 5px;
-  }
+}
 
-/* Tab System */
+/* ======================== */
+/* TAB SYSTEM */
+/* ======================== */
+
 .manager-tabs {
     display: flex;
     border-bottom: 1px solid #ddd;
@@ -58,6 +40,10 @@
 
 .tab-content {
     display: none;
+    padding: 15px;
+    background: white;
+    border-radius: 0 0 5px 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     animation: fadeIn 0.3s;
 }
 
@@ -65,7 +51,10 @@
     display: block;
 }
 
-/* Action Bar */
+/* ======================== */
+/* ACTION CONTROLS */
+/* ======================== */
+
 .action-bar {
     display: flex;
     gap: 10px;
@@ -73,12 +62,28 @@
     flex-wrap: wrap;
 }
 
-/* Tables */
+.btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+/* ======================== */
+/* MANAGER TABLES */
+/* ======================== */
+
 .table-container {
     overflow-x: auto;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    max-width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 5px;
 }
 
 .manager-container table {
@@ -90,6 +95,16 @@
     background: #2c3e50;
     position: sticky;
     top: 0;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.manager-container td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
 }
 
 .manager-container td.editable {
@@ -101,144 +116,12 @@
     outline: 2px solid #3498db;
 }
 
-/* Modal Enhancements */
-.modal-content {
-    max-width: 500px;
-    width: 90%;
-}
+/* ======================== */
+/* ARCHIVE TABLES */
+/* ======================== */
 
-.summary-card {
-    background: #f9f9f9;
-    padding: 15px;
-    border-radius: 8px;
-    margin: 15px 0;
-}
-
-.summary-card h4 {
-    margin-top: 0;
-    color: #2c3e50;
-}
-
-.summary-stats {
-    display: flex;
-    justify-content: space-between;
-}
-
-.checkbox-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 15px 0;
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .manager-tabs {
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-    
-    .action-bar {
-        flex-direction: column;
-    }
-    
-    .action-bar button {
-        width: 100%;
-    }
-}
-
-/* Modal Overlay */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-}
-
-.modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    max-width: 500px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    animation: modalFadeIn 0.3s ease-out;
-}
-
-/* Remove the summary-grid related styles and keep just: */
-.summary-card {
-    padding: 1rem;
-    border-radius: 8px;
-    background: #f8f9fa;
-    margin: 1.5rem 0;
-}
-
-.metric-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-.metric {
-    text-align: center;
-    padding: 0.5rem;
-}
-
-.metric.highlight {
-    background: #e3f2fd;
-    border-radius: 4px;
-    font-weight: bold;
-}
-
-.metric .value {
-    font-size: 1.5rem;
-    display: block;
-    color: #2c3e50;
-}
-
-.metric .label {
-    font-size: 0.8rem;
-    color: #7f8c8d;
-}
-
-/* Archive Tabs */
-.tab-content {
-    display: none;
-    padding: 15px;
-    background: white;
-    border-radius: 0 0 5px 5px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.tab-content.active {
-    display: block;
-}
-
-/* Archive Tables */
 .archive-header {
     margin-bottom: 15px;
-}
-
-.table-container {
-    overflow-x: auto;
-    max-width: 100%;
-    border: 1px solid #ddd;
-    border-radius: 5px;
 }
 
 #packaging-archive-table,
@@ -246,24 +129,6 @@
     width: 100%;
     border-collapse: collapse;
     min-width: 600px;
-}
-
-#packaging-archive-table th,
-#returns-archive-table th {
-    background: #2c3e50;
-    color: white;
-    padding: 10px;
-    text-align: center;
-    position: sticky;
-    top: 0;
-    white-space: nowrap;
-}
-
-#packaging-archive-table td,
-#returns-archive-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #eee;
-    text-align: center;
 }
 
 /* Column Styles */
@@ -300,7 +165,7 @@
     background-color: #f8f9fa;
 }
 
-/* Frozen first columns */
+/* Frozen Columns */
 #packaging-archive-table tr td:first-child,
 #returns-archive-table tr td:first-child {
     position: sticky;
@@ -313,20 +178,129 @@
 #packaging-archive-table tr td:nth-child(2),
 #returns-archive-table tr td:nth-child(2) {
     position: sticky;
-    left: 150px; /* Match product-col width */
+    left: 150px;
     background: white;
     z-index: 1;
     text-align: left;
 }
 
-/* Responsive */
+/* ======================== */
+/* MODAL DIALOGS */
+/* ======================== */
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.summary-card {
+    padding: 1rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+    margin: 1.5rem 0;
+}
+
+.summary-card h4 {
+    margin-top: 0;
+    color: #2c3e50;
+}
+
+.metric-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.metric {
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.metric.highlight {
+    background: #e3f2fd;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.metric .value {
+    font-size: 1.5rem;
+    display: block;
+    color: #2c3e50;
+}
+
+.metric .label {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+/* ======================== */
+/* ANIMATIONS */
+/* ======================== */
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ======================== */
+/* RESPONSIVE ADJUSTMENTS */
+/* ======================== */
+
 @media (max-width: 768px) {
+    .manager-tabs {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .action-bar {
+        flex-direction: column;
+    }
+    
+    .action-bar button {
+        width: 100%;
+    }
+
     .product-col {
         min-width: 120px;
     }
+    
     .variant-col {
         min-width: 100px;
     }
+    
     .date-col {
         min-width: 60px;
     }

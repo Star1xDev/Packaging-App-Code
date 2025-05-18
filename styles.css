@@ -1,4 +1,6 @@
-/* General Styles */
+/* ======================== */
+/* BASE STYLES & RESETS */
+/* ======================== */
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
@@ -6,6 +8,10 @@ body {
     text-align: center;
     margin: 0;
 }
+
+/* ======================== */
+/* LAYOUT COMPONENTS */
+/* ======================== */
 
 /* Navigation Bar */
 nav {
@@ -19,27 +25,28 @@ nav ul {
     padding: 0;
     display: flex;
     justify-content: center;
-    flex-wrap: wrap; /* Allow items to wrap on smaller screens */
+    flex-wrap: wrap;
 }
 
 nav ul li {
-    margin: 5px 10px; /* Reduce margin for smaller screens */
+    margin: 5px 10px;
 }
 
 nav ul li a {
     color: white;
     text-decoration: none;
-    font-size: 16px; /* Smaller font size for mobile */
-    padding: 8px 12px; /* Smaller padding for mobile */
+    font-size: 16px;
+    padding: 8px 12px;
     border-radius: 5px;
     transition: background 0.3s;
 }
 
-nav ul li a.active, nav ul li a:hover {
+nav ul li a.active, 
+nav ul li a:hover {
     background-color: #3498db;
 }
 
-/* Header */
+/* Header Styles */
 header {
     background-color: #3498db;
     color: white;
@@ -56,6 +63,10 @@ header p {
     margin: 5px 0 0;
     font-size: 18px;
 }
+
+/* ======================== */
+/* FORM ELEMENTS */
+/* ======================== */
 
 /* Buttons */
 button {
@@ -74,43 +85,30 @@ button:hover {
     background-color: #2980b9;
 }
 
-/* Save Button */
-#save-packaging {
-    background-color: #3498db;
-}
-
-#save-packaging:hover {
-    background-color: #2980b9;
-}
-
-/* Generate Button */
-#generate-packaging {
-    background-color: #3498db;
-}
-
-#generate-packaging:hover {
-    background-color: #2980b9;
-}
-
-/* Reset Button */
-#reset-packaging {
-    background-color: #e74c3c;
-}
-
-#reset-packaging:hover {
-    background-color: #c0392b;
-}
-
-/* Show Packaging Table Button */
+/* Specific Button Styles */
+#save-packaging,
+#generate-packaging,
 #toggle-packaging-table {
     background-color: #3498db;
 }
 
+#save-packaging:hover,
+#generate-packaging:hover,
 #toggle-packaging-table:hover {
     background-color: #2980b9;
 }
 
-/* Inputs */
+#reset-packaging,
+#cancel-scan {
+    background-color: #e74c3c;
+}
+
+#reset-packaging:hover,
+#cancel-scan:hover {
+    background-color: #c0392b;
+}
+
+/* Input Fields */
 input, select {
     width: 90%;
     max-width: 300px;
@@ -121,7 +119,11 @@ input, select {
     font-size: 16px;
 }
 
-/* Product Details Section */
+/* ======================== */
+/* CONTENT SECTIONS */
+/* ======================== */
+
+/* Product Details */
 #product-details {
     background: white;
     padding: 20px;
@@ -155,58 +157,16 @@ input, select {
     background: #d0d3d4;
 }
 
-/* Selected Variant */
 input[type="radio"]:checked + label {
     background: #3498db;
     color: white;
 }
 
-/* Packaging Data Display */
-p {
-    font-size: 18px;
-    font-weight: bold;
-}
+/* ======================== */
+/* DATA TABLES */
+/* ======================== */
 
-/* Toggle Addition or Subtraction */
-#toggle-operation {
-    background-color: #3498db;
-}
-
-#toggle-operation.subtract {
-    background-color: #e74c3c;
-}
-
-/* Cancel Button */
-#cancel-scan {
-    background-color: #e74c3c;
-}
-
-#cancel-scan:hover {
-    background-color: #c0392b;
-}
-
-/* Packaging Table Container */
-
-/* Ensure buttons align nicely with the table header */
-#packaging-table-container h2 {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  
-#undo-button, #redo-button {
-    padding: 5px 10px;
-    font-size: 14px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-#undo-button:disabled, #redo-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
+/* Table Container */
 #packaging-table-container {
     background: white;
     padding: 20px;
@@ -220,7 +180,7 @@ p {
     box-sizing: border-box;
 }
 
-/* Table Styling */
+/* Table Styles */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -228,7 +188,6 @@ table {
     font-size: 16px;
 }
 
-/* Table Headers */
 th {
     background: #2c3e50;
     color: white;
@@ -237,7 +196,6 @@ th {
     border-bottom: 2px solid #34495e;
 }
 
-/* Table Cells */
 td {
     padding: 12px;
     border-bottom: 1px solid #ddd;
@@ -246,17 +204,15 @@ td {
     position: relative;
 }
 
-/* Alternate Row Coloring */
+/* Table Interactions */
 tr:nth-child(even) {
     background: #f9f9f9;
 }
 
-/* Hover Effect on Rows */
 tr:hover {
     background: #ecf0f1;
 }
 
-/* Tooltip for IDs */
 td[title]:hover::after {
     content: attr(title);
     position: absolute;
@@ -271,6 +227,10 @@ td[title]:hover::after {
     font-size: 14px;
     z-index: 10;
 }
+
+/* ======================== */
+/* UI COMPONENTS */
+/* ======================== */
 
 /* Autocomplete Dropdown */
 .autocomplete-dropdown {
@@ -293,102 +253,7 @@ td[title]:hover::after {
     background: #f0f0f0;
 }
 
-/* Responsive Styles */
-@media screen and (max-width: 768px) {
-    /* Navigation Bar */
-    nav ul li a {
-        font-size: 14px; /* Smaller font size for tablets */
-        padding: 6px 10px; /* Smaller padding for tablets */
-    }
-
-    /* Header */
-    header h1 {
-        font-size: 22px;
-    }
-
-    header p {
-        font-size: 16px;
-    }
-
-    /* Buttons */
-    button {
-        width: 90%;
-        max-width: 300px;
-        font-size: 14px;
-        padding: 8px 12px;
-    }
-
-    /* Inputs */
-    input, select {
-        width: 95%;
-        font-size: 14px;
-    }
-
-    /* Product Details Section */
-    #product-details,
-    #packaging-table-container {
-        width: 95%;
-        margin: 15px auto;
-        padding: 15px;
-    }
-
-    /* Table Styling */
-    table {
-        font-size: 14px;
-    }
-
-    th, td {
-        padding: 8px;
-    }
-}
-
-@media screen and (max-width: 480px) {
-    /* Navigation Bar */
-    nav ul {
-        flex-direction: column; /* Stack items vertically on mobile */
-        align-items: center;
-    }
-
-    nav ul li {
-        margin: 5px 0; /* Reduce margin for mobile */
-    }
-
-    nav ul li a {
-        font-size: 14px; /* Smaller font size for mobile */
-        padding: 6px 10px; /* Smaller padding for mobile */
-    }
-
-    /* Header */
-    header h1 {
-        font-size: 20px;
-    }
-
-    header p {
-        font-size: 14px;
-    }
-
-    /* Buttons */
-    button {
-        font-size: 12px;
-        padding: 6px 10px;
-    }
-
-    /* Inputs */
-    input, select {
-        font-size: 12px;
-    }
-
-    /* Table Styling */
-    table {
-        font-size: 12px;
-    }
-
-    th, td {
-        padding: 6px;
-    }
-}
-
-/* Loading Spinner Styles */
+/* Loading Spinner */
 .loading-spinner {
     display: none;
     text-align: center;
@@ -401,7 +266,6 @@ td[title]:hover::after {
     color: #333;
 }
 
-/* Spinner Animation */
 .spinner {
     border: 4px solid #f3f3f3;
     border-top: 4px solid #3498db;
@@ -417,7 +281,7 @@ td[title]:hover::after {
     100% { transform: rotate(360deg); }
 }
 
-/* Confirmation Modal Styles */
+/* Confirmation Modal */
 #confirmation-modal {
     display: none;
     position: fixed;
@@ -464,102 +328,153 @@ td[title]:hover::after {
     background-color: #c0392b;
 }
 
-/* manager page css */
+/* ======================== */
+/* VARIANT SELECTION SYSTEM */
+/* ======================== */
 
-.manager-container {
-    max-width: 600px;
-    margin: 20px auto;
-    padding: 20px;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  }
-  
-  .action-buttons {
-    display: flex;
-    gap: 10px;
-    margin: 20px 0;
-  }
-  
-  .btn-primary {
-    background: #3498db;
-    color: white;
-  }
-  
-  .btn-danger {
-    background: #e74c3c;
-    color: white;
-  }
-  
-  #archive-status {
-    padding: 10px;
-    border-radius: 5px;
-  }
-
-  /* Variant Dimension Selection */
-/* Variant Selector Styles */
 #variant-selector {
-  margin: 1rem 0;
+    margin: 1rem 0;
 }
 
 .dimension-group {
-  margin-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    background: #f9f9f9;
+    padding: 1rem;
+    border-radius: 8px;
 }
 
 .dimension-group h3 {
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
-  color: #555;
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    color: #555;
 }
 
 .chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .chip {
-  padding: 0.5rem 1rem;
-  background: #f0f0f0;
-  color: black;
-  border: 1px solid #ddd;
-  border-radius: 2rem;
-  cursor: pointer;
-  transition: all 0.2s;
+    padding: 0.5rem 1rem;
+    background: #f0f0f0;
+    color: black;
+    border: 1px solid #ddd;
+    border-radius: 2rem;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
 .chip.selected {
-  background: #3498db;
-  color: white;
-  border-color: #2980b9;
+    background: #3498db;
+    color: white;
+    border-color: #2980b9;
 }
 
 .chip:hover:not(.selected) {
-  background: #e0e0e0;
+    background: #e0e0e0;
 }
 
-/* Chip States */
 .chip.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
-.chip.selected {
-  background: #3498db;
-  color: white;
-  border-color: #2980b9;
+/* ======================== */
+/* RESPONSIVE DESIGN */
+/* ======================== */
+
+@media screen and (max-width: 768px) {
+    /* Navigation */
+    nav ul li a {
+        font-size: 14px;
+        padding: 6px 10px;
+    }
+
+    /* Header */
+    header h1 {
+        font-size: 22px;
+    }
+
+    header p {
+        font-size: 16px;
+    }
+
+    /* Buttons */
+    button {
+        width: 90%;
+        max-width: 300px;
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+
+    /* Inputs */
+    input, select {
+        width: 95%;
+        font-size: 14px;
+    }
+
+    /* Content Sections */
+    #product-details,
+    #packaging-table-container {
+        width: 95%;
+        margin: 15px auto;
+        padding: 15px;
+    }
+
+    /* Tables */
+    table {
+        font-size: 14px;
+    }
+
+    th, td {
+        padding: 8px;
+    }
 }
 
-/* Dimension Group Styling */
-.dimension-group {
-  margin-bottom: 1.5rem;
-  background: #f9f9f9;
-  padding: 1rem;
-  border-radius: 8px;
-}
+@media screen and (max-width: 480px) {
+    /* Navigation */
+    nav ul {
+        flex-direction: column;
+        align-items: center;
+    }
 
-.dimension-group h3 {
-  margin: 0 0 0.5rem 0;
-  color: #555;
+    nav ul li {
+        margin: 5px 0;
+    }
+
+    nav ul li a {
+        font-size: 14px;
+        padding: 6px 10px;
+    }
+
+    /* Header */
+    header h1 {
+        font-size: 20px;
+    }
+
+    header p {
+        font-size: 14px;
+    }
+
+    /* Buttons */
+    button {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+
+    /* Inputs */
+    input, select {
+        font-size: 12px;
+    }
+
+    /* Tables */
+    table {
+        font-size: 12px;
+    }
+
+    th, td {
+        padding: 6px;
+    }
 }
