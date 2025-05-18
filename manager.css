@@ -156,13 +156,22 @@
 .daily-total,
 .grand-total {
     font-weight: bold;
-    background-color: #f8f9fa;
+    background-color: #1381f0;
+}
+.grand-total {
+    background-color: #000000;
+    color: white;
+}
+
+.daily-total {
+   text-align: center !important;
 }
 
 .totals-label {
     font-weight: bold;
     text-align: center !important;
-    background-color: #f8f9fa;
+    background-color: #1381f0;
+
 }
 
 /* Frozen Columns */
@@ -170,7 +179,7 @@
 #returns-archive-table tr td:first-child {
     position: sticky;
     left: 0;
-    background: white;
+    /* background: white; */
     z-index: 1;
     text-align: left;
 }
@@ -179,7 +188,6 @@
 #returns-archive-table tr td:nth-child(2) {
     position: sticky;
     left: 150px;
-    background: white;
     z-index: 1;
     text-align: left;
 }
