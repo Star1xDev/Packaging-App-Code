@@ -53,6 +53,7 @@ const state = {
 
 // Initialize the manager dashboard
 function initManager() {
+    console.log("Initializing manager dashboard");
     notify.init();
     setupTabNavigation();
     setupEventListeners();
@@ -196,8 +197,10 @@ function enableTableEditing() {
 
 // Make a table cell editable
 function makeCellEditable(cell) {
+    console.log("Editable cell clicked", cell);
     const currentValue = cell.textContent;
     cell.innerHTML = `<input type="number" value="${currentValue}" min="0">`;
+    console.log("Input created", cell);
     const input = cell.querySelector("input");
     input.focus();
     

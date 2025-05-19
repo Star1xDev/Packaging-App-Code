@@ -27,6 +27,7 @@
         <div class="manager-tabs">
             <button class="tab-btn active" data-tab="packaging">Packaging</button>
             <button class="tab-btn" data-tab="returns">Returns</button>
+            <button class="tab-btn" data-tab="stock">Stock</button>
             <!-- New archive tabs -->
             <button class="tab-btn" data-tab="packaging-archive">Packaging Archive</button>
             <button class="tab-btn" data-tab="returns-archive">Returns Archive</button>
@@ -120,6 +121,30 @@
             </div>
         </div>
 
+        <!-- Add the new tab content -->
+        <div id="stock-tab" class="tab-content">
+            <div class="action-bar">
+                <button id="add-product" class="btn-primary">＋ Add Product</button>
+                <button id="reset-stock" class="btn-danger">⟳ Reset All Stock</button>
+            </div>
+            
+            <div class="table-container">
+                <table id="stock-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Variant</th>
+                            <th>Current Stock</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Will be populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         
         <!-- Update the modal structure in manager.html -->
         <div id="archive-modal" class="modal" style="display: none;">
@@ -169,5 +194,7 @@
     </div>
 
     <script type="module" src="manager.js"></script>
+    <script type="module" src="stock.js"></script>
+    
 </body>
 </html>

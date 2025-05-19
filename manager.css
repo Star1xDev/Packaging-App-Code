@@ -313,3 +313,83 @@
         min-width: 60px;
     }
 }
+
+/* ======================== */
+/* STOCK TABLE EDITABLE CELLS */
+/* ======================== */
+
+/* Stock Table Specific Styles */
+#stock-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#stock-table th {
+    background: #2c3e50;
+    color: white;
+    padding: 12px;
+    text-align: left;
+}
+
+#stock-table td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+#stock-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Editable Cells */
+#stock-table td.stock-editable-cell {
+    background: #fff8e1;
+    cursor: pointer;
+    position: relative;
+}
+
+#stock-table td.stock-editable-cell input {
+    width: 60px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: inherit;
+}
+
+
+
+/* Action Buttons */
+#stock-table .actions {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+#stock-table .actions button {
+    padding: 5px 10px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#stock-table .stock-save-btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    #stock-table .actions {
+        flex-direction: column;
+    }
+    
+    #stock-table .actions button {
+        width: 100%;
+    }
+}
