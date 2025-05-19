@@ -115,7 +115,7 @@ function setupStockEventHandlers() {
     
     // Add product button
     stockDOM.addBtn.addEventListener('click', () => {
-        window.location.href = "product_form.html";
+        window.location.href = "create_product.html";
     });
     
     // Reset stock button
